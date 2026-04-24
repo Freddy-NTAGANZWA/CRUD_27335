@@ -3,8 +3,56 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard — ServiceBook Admin</title>
+  <title>Admin Dashboard — ServiceBook</title>
   <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* ── Dashboard extras ─────────────────────────────────────────────── */
+    .section-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+
+    /* Status breakdown bar */
+    .status-bar-wrap { margin-bottom: 28px; }
+    .status-bar { display: flex; height: 12px; border-radius: 8px; overflow: hidden; gap: 2px; margin-bottom: 10px; }
+    .sb-seg { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .sb-pending   { background: #f59e0b; }
+    .sb-confirmed { background: #16a34a; }
+    .sb-completed { background: #2563eb; }
+    .sb-cancelled { background: #dc2626; }
+    .status-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+    .sl-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-light); }
+    .sl-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* Two-column layout */
+    .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+
+    /* Activity feed */
+    .activity-list { list-style: none; }
+    .activity-list li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    .activity-list li:last-child { border-bottom: none; }
+    .act-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+    .act-blue   { background: #dbeafe; }
+    .act-green  { background: #dcfce7; }
+    .act-orange { background: #fef3c7; }
+    .act-info { flex: 1; }
+    .act-info strong { display: block; color: var(--text); }
+    .act-info span   { color: var(--text-light); font-size: 0.8rem; }
+
+    /* Top services */
+    .top-service-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    .top-service-row:last-child { border-bottom: none; }
+    .ts-rank { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ts-bar-wrap { flex: 1; }
+    .ts-name { font-weight: 600; margin-bottom: 4px; }
+    .ts-bar { height: 6px; border-radius: 4px; background: #dbeafe; }
+    .ts-bar-fill { height: 100%; border-radius: 4px; background: var(--primary); transition: width 0.6s ease; }
+    .ts-count { font-weight: 700; color: var(--primary); min-width: 28px; text-align: right; }
+
+    /* Latest users table */
+    .mini-table td, .mini-table th { padding: 10px 12px; }
+
+    /* Summary numbers in card header */
+    .card-header .sub { font-size: 0.8rem; color: var(--text-light); font-weight: 400; margin-left: 8px; }
+  </style>
 </head>
 <body>
 
@@ -12,12 +60,14 @@
 
 <main class="main">
   <div class="topbar">
-    <h1>Dashboard</h1>
+    <h1>Admin Dashboard</h1>
     <div class="topbar-right" id="topbar-user"></div>
   </div>
+
   <div class="content">
 
-    <div class="stats-grid">
+    <!-- ── KPI Cards ─────────────────────────────────────────────────── -->
+    <div class="stats-grid" style="margin-bottom:24px;">
       <div class="stat-card">
         <div class="stat-icon blue">👥</div>
         <div class="stat-info"><h3 id="stat-users">—</h3><p>Total Users</p></div>
@@ -28,7 +78,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-icon orange">📋</div>
-        <div class="stat-info"><h3 id="stat-appointments">—</h3><p>Appointments</p></div>
+        <div class="stat-info"><h3 id="stat-appointments">—</h3><p>Total Appointments</p></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon purple">🏷️</div>
@@ -36,22 +86,72 @@
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:24px;">
-      <div class="card-header">
-        <h3>Recent Appointments</h3>
-        <a href="appointments.html" class="btn btn-outline btn-sm">View All</a>
+    <!-- ── Appointment Status Breakdown ──────────────────────────────── -->
+    <div class="card status-bar-wrap" style="padding:20px 24px;margin-bottom:24px;">
+      <div class="section-title">Appointment Status Breakdown</div>
+      <div class="status-bar" id="status-bar">
+        <div class="sb-seg sb-pending"   id="bar-pending"   style="width:0%"></div>
+        <div class="sb-seg sb-confirmed" id="bar-confirmed" style="width:0%"></div>
+        <div class="sb-seg sb-completed" id="bar-completed" style="width:0%"></div>
+        <div class="sb-seg sb-cancelled" id="bar-cancelled" style="width:0%"></div>
       </div>
-      <div class="card-body">
-        <div id="recent-appointments"><div class="loading"><div class="spinner"></div></div></div>
+      <div class="status-legend">
+        <div class="sl-item"><div class="sl-dot" style="background:#f59e0b"></div><span id="leg-pending">Pending (0)</span></div>
+        <div class="sl-item"><div class="sl-dot" style="background:#16a34a"></div><span id="leg-confirmed">Confirmed (0)</span></div>
+        <div class="sl-item"><div class="sl-dot" style="background:#2563eb"></div><span id="leg-completed">Completed (0)</span></div>
+        <div class="sl-item"><div class="sl-dot" style="background:#dc2626"></div><span id="leg-cancelled">Cancelled (0)</span></div>
       </div>
     </div>
 
-    <div class="quick-links">
-      <a href="users.html"        class="quick-link"><div class="ql-icon">👥</div><span>Manage Users</span></a>
-      <a href="services.html"     class="quick-link"><div class="ql-icon">🛠️</div><span>Manage Services</span></a>
-      <a href="categories.html"   class="quick-link"><div class="ql-icon">🏷️</div><span>Manage Categories</span></a>
-      <a href="appointments.html" class="quick-link"><div class="ql-icon">📋</div><span>Manage Appointments</span></a>
-      <a href="locations.html"    class="quick-link"><div class="ql-icon">📍</div><span>View Locations</span></a>
+    <!-- ── Two-column: Recent Appointments + Latest Users ────────────── -->
+    <div class="dash-grid">
+
+      <!-- Recent Appointments -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Recent Appointments <span class="sub" id="appt-sub"></span></h3>
+          <a href="appointments.html" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body">
+          <div id="recent-appointments"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <!-- Latest Registered Users -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Latest Users</h3>
+          <a href="users.html" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body">
+          <div id="latest-users"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Two-column: Top Services + Quick Actions ───────────────────── -->
+    <div class="dash-grid">
+
+      <!-- Top Services by Appointment Count -->
+      <div class="card" style="padding:20px 24px;">
+        <div class="section-title">Top Services by Bookings</div>
+        <div id="top-services"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card" style="padding:20px 24px;">
+        <div class="section-title">Quick Actions</div>
+        <div class="quick-links" style="grid-template-columns:1fr 1fr;margin-top:0;">
+          <a href="users.html"        class="quick-link"><div class="ql-icon">👥</div><span>Manage Users</span></a>
+          <a href="services.html"     class="quick-link"><div class="ql-icon">🛠️</div><span>Manage Services</span></a>
+          <a href="categories.html"   class="quick-link"><div class="ql-icon">🏷️</div><span>Categories</span></a>
+          <a href="appointments.html" class="quick-link"><div class="ql-icon">📋</div><span>Appointments</span></a>
+          <a href="locations.html"    class="quick-link"><div class="ql-icon">📍</div><span>Locations</span></a>
+          <a href="login.html"        class="quick-link" onclick="logout();return false;"><div class="ql-icon">⏻</div><span>Logout</span></a>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -60,38 +160,116 @@
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  requireAuth(true); // admin only
+  requireAuth(true);
   buildSidebar('dashboard');
 
-  async function loadStats() {
-    const [users, services, appointments, categories] = await Promise.all([
-      apiFetch('/users?size=1'),
-      apiFetch('/services?size=1'),
-      apiFetch('/appointments?size=5&direction=DESC'),
+  async function loadDashboard() {
+    const [usersRes, servicesRes, appointmentsRes, categoriesRes] = await Promise.all([
+      apiFetch('/users?size=5&sortBy=id&direction=DESC'),
+      apiFetch('/services?size=100'),
+      apiFetch('/appointments?size=200&sortBy=appointmentTime&direction=DESC'),
       apiFetch('/categories')
     ]);
 
-    if (users.ok)        document.getElementById('stat-users').textContent        = users.data.totalElements ?? '—';
-    if (services.ok)     document.getElementById('stat-services').textContent     = services.data.totalElements ?? '—';
-    if (appointments.ok) document.getElementById('stat-appointments').textContent = appointments.data.totalElements ?? '—';
-    if (categories.ok)   document.getElementById('stat-categories').textContent   = Array.isArray(categories.data) ? categories.data.length : '—';
+    // ── KPI numbers ──────────────────────────────────────────────────────
+    if (usersRes.ok)        document.getElementById('stat-users').textContent        = usersRes.data.totalElements ?? '—';
+    if (servicesRes.ok)     document.getElementById('stat-services').textContent     = servicesRes.data.totalElements ?? '—';
+    if (appointmentsRes.ok) document.getElementById('stat-appointments').textContent = appointmentsRes.data.totalElements ?? '—';
+    if (categoriesRes.ok)   document.getElementById('stat-categories').textContent   = Array.isArray(categoriesRes.data) ? categoriesRes.data.length : '—';
 
-    const container = document.getElementById('recent-appointments');
-    if (appointments.ok && appointments.data.content?.length) {
-      const rows = appointments.data.content.map(a => `
+    // ── Status breakdown bar ─────────────────────────────────────────────
+    if (appointmentsRes.ok) {
+      const all = appointmentsRes.data.content || [];
+      const total = all.length || 1;
+      const counts = { PENDING: 0, CONFIRMED: 0, COMPLETED: 0, CANCELLED: 0 };
+      all.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+
+      ['pending','confirmed','completed','cancelled'].forEach(s => {
+        const key = s.toUpperCase();
+        const pct = ((counts[key] / total) * 100).toFixed(1);
+        document.getElementById(`bar-${s}`).style.width = pct + '%';
+        document.getElementById(`leg-${s}`).textContent =
+          s.charAt(0).toUpperCase() + s.slice(1) + ` (${counts[key]})`;
+      });
+
+      // ── Recent appointments table (last 5) ───────────────────────────
+      const recent = all.slice(0, 5);
+      document.getElementById('appt-sub').textContent = `showing ${recent.length} of ${appointmentsRes.data.totalElements}`;
+      const apptContainer = document.getElementById('recent-appointments');
+      if (recent.length) {
+        const rows = recent.map(a => `
+          <tr>
+            <td><strong>#${a.id}</strong></td>
+            <td>${a.user?.name || '—'}</td>
+            <td>${a.service?.name || '—'}</td>
+            <td>${formatDateTime(a.appointmentTime)}</td>
+            <td>${statusBadge(a.status)}</td>
+          </tr>`).join('');
+        apptContainer.innerHTML = `
+          <table class="mini-table">
+            <thead><tr><th>ID</th><th>User</th><th>Service</th><th>Time</th><th>Status</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+      } else {
+        apptContainer.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No appointments yet</p></div>';
+      }
+
+      // ── Top services by booking count ────────────────────────────────
+      const serviceCounts = {};
+      all.forEach(a => {
+        if (a.service?.name) {
+          serviceCounts[a.service.name] = (serviceCounts[a.service.name] || 0) + 1;
+        }
+      });
+      const topServices = Object.entries(serviceCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      const maxCount = topServices[0]?.[1] || 1;
+      const tsContainer = document.getElementById('top-services');
+      if (topServices.length) {
+        tsContainer.innerHTML = topServices.map(([name, count], i) => `
+          <div class="top-service-row">
+            <div class="ts-rank">${i + 1}</div>
+            <div class="ts-bar-wrap">
+              <div class="ts-name">${name}</div>
+              <div class="ts-bar"><div class="ts-bar-fill" style="width:${(count/maxCount*100).toFixed(0)}%"></div></div>
+            </div>
+            <div class="ts-count">${count}</div>
+          </div>`).join('');
+      } else {
+        tsContainer.innerHTML = '<div class="empty-state" style="padding:24px;"><div class="empty-icon">📊</div><p>No booking data yet</p></div>';
+      }
+    }
+
+    // ── Latest users ─────────────────────────────────────────────────────
+    const usersContainer = document.getElementById('latest-users');
+    if (usersRes.ok && usersRes.data.content?.length) {
+      const rows = usersRes.data.content.map(u => `
         <tr>
-          <td>${a.id}</td>
-          <td>${a.user?.name || '—'}</td>
-          <td>${a.service?.name || '—'}</td>
-          <td>${formatDateTime(a.appointmentTime)}</td>
-          <td>${statusBadge(a.status)}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;">
+                ${u.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <strong style="display:block;">${u.name}</strong>
+                <span style="font-size:0.78rem;color:var(--text-light);">${u.email}</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="role-chip ${u.role?.name==='ADMIN'?'chip-admin':'chip-user'}">${u.role?.name || '—'}</span></td>
         </tr>`).join('');
-      container.innerHTML = `<table><thead><tr><th>ID</th><th>User</th><th>Service</th><th>Time</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+      usersContainer.innerHTML = `
+        <table class="mini-table">
+          <thead><tr><th>User</th><th>Role</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
     } else {
-      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No appointments yet</p></div>';
+      usersContainer.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>No users yet</p></div>';
     }
   }
-  loadStats();
+
+  loadDashboard();
 </script>
 </body>
 </html>
