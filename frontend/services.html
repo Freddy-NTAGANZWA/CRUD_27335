@@ -3,28 +3,17 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Services — ServiceBook</title>
+  <title>Services — ServiceBook Admin</title>
   <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
 
-<aside class="sidebar">
-  <div class="sidebar-brand"><h2>📅 ServiceBook</h2><p>Appointment System</p></div>
-  <nav class="sidebar-nav">
-    <a href="index.html" class="nav-item"><span class="icon">🏠</span> Dashboard</a>
-    <a href="users.html" class="nav-item"><span class="icon">👥</span> Users</a>
-    <a href="services.html" class="nav-item active"><span class="icon">🛠️</span> Services</a>
-    <a href="categories.html" class="nav-item"><span class="icon">🏷️</span> Categories</a>
-    <a href="appointments.html" class="nav-item"><span class="icon">📋</span> Appointments</a>
-    <a href="locations.html" class="nav-item"><span class="icon">📍</span> Locations</a>
-  </nav>
-  <div class="sidebar-footer">Service Appointment v1.0</div>
-</aside>
+<aside class="sidebar" id="sidebar"></aside>
 
 <main class="main">
   <div class="topbar">
     <h1>Services</h1>
-    <div class="topbar-right">
+    <div class="topbar-right" id="topbar-user">
       <button class="btn btn-primary" onclick="openModal()">+ Add Service</button>
     </div>
   </div>
@@ -71,112 +60,109 @@
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/auth.js"></script>
 <script>
-let allServices = [], currentPage = 0, pageSize = 10, editId = null;
+  requireAuth(true);
+  buildSidebar('services');
 
-async function loadServices(page = 0) {
-  currentPage = page;
-  const res = await apiFetch(`/services?page=${page}&size=${pageSize}`);
-  if (!res.ok) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load services</p></div>'; return; }
-  allServices = res.data.content || [];
-  document.getElementById('total-badge').textContent = res.data.totalElements || 0;
-  renderTable(allServices);
-  renderPagination(res.data);
-}
+  let allServices = [], currentPage = 0, pageSize = 10, editId = null;
 
-function renderTable(services) {
-  if (!services.length) {
-    document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">🛠️</div><p>No services found</p></div>';
-    return;
+  async function loadServices(page = 0) {
+    currentPage = page;
+    const res = await apiFetch(`/services?page=${page}&size=${pageSize}`);
+    if (!res.ok) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load</p></div>'; return; }
+    allServices = res.data.content || [];
+    document.getElementById('total-badge').textContent = res.data.totalElements || 0;
+    renderTable(allServices);
+    renderPagination(res.data);
   }
-  const rows = services.map(s => `
-    <tr>
-      <td>${s.id}</td>
-      <td><strong>${s.name}</strong></td>
-      <td>${s.description || '—'}</td>
-      <td>${s.price != null ? 'RWF ' + Number(s.price).toLocaleString() : '—'}</td>
-      <td>${s.categories?.map(c => `<span class="status status-confirmed">${c.name}</span>`).join(' ') || '—'}</td>
-      <td>
-        <button class="btn btn-warning btn-sm" onclick="editService(${s.id})">✏️ Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteService(${s.id}, '${s.name}')">🗑️ Delete</button>
-      </td>
-    </tr>`).join('');
-  document.getElementById('table-container').innerHTML = `
-    <table>
-      <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Price</th><th>Categories</th><th>Actions</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
 
-function renderPagination(data) {
-  const pg = document.getElementById('pagination');
-  if (data.totalPages <= 1) { pg.innerHTML = ''; return; }
-  let html = `<button class="page-btn" onclick="loadServices(${currentPage-1})" ${currentPage===0?'disabled':''}>‹ Prev</button>`;
-  for (let i = 0; i < data.totalPages; i++)
-    html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="loadServices(${i})">${i+1}</button>`;
-  html += `<button class="page-btn" onclick="loadServices(${currentPage+1})" ${currentPage===data.totalPages-1?'disabled':''}>Next ›</button>`;
-  html += `<span class="page-info">Page ${currentPage+1} of ${data.totalPages}</span>`;
-  pg.innerHTML = html;
-}
-
-function filterTable() {
-  const q = document.getElementById('search').value.toLowerCase();
-  renderTable(allServices.filter(s => s.name.toLowerCase().includes(q)));
-}
-
-function openModal() {
-  editId = null;
-  document.getElementById('modal-title').textContent = 'Add Service';
-  ['f-name','f-desc','f-price'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('modal').classList.add('open');
-}
-
-function closeModal() { document.getElementById('modal').classList.remove('open'); }
-
-async function editService(id) {
-  const res = await apiFetch(`/services/${id}`);
-  if (!res.ok) return;
-  const s = res.data;
-  editId = id;
-  document.getElementById('modal-title').textContent = 'Edit Service';
-  document.getElementById('f-name').value = s.name || '';
-  document.getElementById('f-desc').value = s.description || '';
-  document.getElementById('f-price').value = s.price || '';
-  document.getElementById('modal').classList.add('open');
-}
-
-async function saveService() {
-  const name = document.getElementById('f-name').value.trim();
-  const description = document.getElementById('f-desc').value.trim();
-  const price = document.getElementById('f-price').value;
-  const alert = document.getElementById('alert');
-
-  if (!name) return showAlert(alert, 'Service name is required', 'error');
-
-  const body = { name, description };
-  if (price) body.price = parseFloat(price);
-
-  const res = editId
-    ? await apiFetch(`/services/update/${editId}`, { method: 'PUT', body: JSON.stringify(body) })
-    : await apiFetch('/services/save', { method: 'POST', body: JSON.stringify(body) });
-
-  if (res.ok) {
-    showAlert(alert, editId ? 'Service updated!' : 'Service created!', 'success');
-    closeModal(); loadServices(currentPage);
-  } else {
-    showAlert(alert, typeof res.data === 'string' ? res.data : 'Operation failed', 'error');
+  function renderTable(services) {
+    if (!services.length) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">🛠️</div><p>No services found</p></div>'; return; }
+    const rows = services.map(s => `
+      <tr>
+        <td>${s.id}</td>
+        <td><strong>${s.name}</strong></td>
+        <td>${s.description || '—'}</td>
+        <td>${s.price != null ? 'RWF ' + Number(s.price).toLocaleString() : '—'}</td>
+        <td>${s.categories?.map(c=>`<span class="status status-confirmed">${c.name}</span>`).join(' ') || '—'}</td>
+        <td>
+          <button class="btn btn-warning btn-sm" onclick="editService(${s.id})">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteService(${s.id},'${s.name}')">🗑️ Delete</button>
+        </td>
+      </tr>`).join('');
+    document.getElementById('table-container').innerHTML = `
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Price</th><th>Categories</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
-}
 
-async function deleteService(id, name) {
-  if (!confirmDelete(name)) return;
-  const res = await apiFetch(`/services/delete/${id}`, { method: 'DELETE' });
-  const alert = document.getElementById('alert');
-  if (res.ok) { showAlert(alert, 'Service deleted!', 'success'); loadServices(currentPage); }
-  else showAlert(alert, 'Failed to delete service', 'error');
-}
+  function renderPagination(data) {
+    const pg = document.getElementById('pagination');
+    if (data.totalPages <= 1) { pg.innerHTML = ''; return; }
+    let html = `<button class="page-btn" onclick="loadServices(${currentPage-1})" ${currentPage===0?'disabled':''}>‹ Prev</button>`;
+    for (let i = 0; i < data.totalPages; i++)
+      html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="loadServices(${i})">${i+1}</button>`;
+    html += `<button class="page-btn" onclick="loadServices(${currentPage+1})" ${currentPage===data.totalPages-1?'disabled':''}>Next ›</button>`;
+    html += `<span class="page-info">Page ${currentPage+1} of ${data.totalPages}</span>`;
+    pg.innerHTML = html;
+  }
 
-loadServices();
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    renderTable(allServices.filter(s => s.name.toLowerCase().includes(q)));
+  }
+
+  function openModal() {
+    editId = null;
+    document.getElementById('modal-title').textContent = 'Add Service';
+    ['f-name','f-desc','f-price'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+  async function editService(id) {
+    const res = await apiFetch(`/services/${id}`);
+    if (!res.ok) return;
+    const s = res.data;
+    editId = id;
+    document.getElementById('modal-title').textContent = 'Edit Service';
+    document.getElementById('f-name').value  = s.name || '';
+    document.getElementById('f-desc').value  = s.description || '';
+    document.getElementById('f-price').value = s.price || '';
+    document.getElementById('modal').classList.add('open');
+  }
+
+  async function saveService() {
+    const name        = document.getElementById('f-name').value.trim();
+    const description = document.getElementById('f-desc').value.trim();
+    const price       = document.getElementById('f-price').value;
+    const alertEl     = document.getElementById('alert');
+
+    if (!name) return showAlert(alertEl, 'Service name is required', 'error');
+
+    const body = { name, description };
+    if (price) body.price = parseFloat(price);
+
+    const res = editId
+      ? await apiFetch(`/services/update/${editId}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await apiFetch('/services/save', { method: 'POST', body: JSON.stringify(body) });
+
+    if (res.ok) { showAlert(alertEl, editId ? 'Service updated!' : 'Service created!', 'success'); closeModal(); loadServices(currentPage); }
+    else showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Operation failed', 'error');
+  }
+
+  async function deleteService(id, name) {
+    if (!confirmDelete(name)) return;
+    const res = await apiFetch(`/services/delete/${id}`, { method: 'DELETE' });
+    const alertEl = document.getElementById('alert');
+    if (res.ok) { showAlert(alertEl, 'Service deleted!', 'success'); loadServices(currentPage); }
+    else showAlert(alertEl, 'Failed to delete', 'error');
+  }
+
+  loadServices();
 </script>
 </body>
 </html>

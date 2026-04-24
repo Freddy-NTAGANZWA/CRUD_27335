@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Dashboard — ServiceBook</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="topbar">
+    <h1>My Dashboard</h1>
+    <div class="topbar-right" id="topbar-user"></div>
+  </div>
+  <div class="content">
+
+    <div class="welcome-banner">
+      <h2>Welcome back, <span id="user-name">…</span> 👋</h2>
+      <p>Manage your appointments and explore available services below.</p>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:28px;">
+      <div class="stat-card">
+        <div class="stat-icon orange">📋</div>
+        <div class="stat-info"><h3 id="stat-total">—</h3><p>My Appointments</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">⏳</div>
+        <div class="stat-info"><h3 id="stat-pending">—</h3><p>Pending</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info"><h3 id="stat-confirmed">—</h3><p>Confirmed</p></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">🛠️</div>
+        <div class="stat-info"><h3 id="stat-services">—</h3><p>Available Services</p></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header">
+        <h3>My Recent Appointments</h3>
+        <a href="user-appointments.html" class="btn btn-outline btn-sm">View All</a>
+      </div>
+      <div class="card-body">
+        <div id="recent-appointments"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div class="card-header" style="padding:0 0 12px 0;"><h3>Quick Actions</h3></div>
+    <div class="quick-links">
+      <a href="user-appointments.html" class="quick-link"><div class="ql-icon">📋</div><span>My Appointments</span></a>
+      <a href="user-services.html"     class="quick-link"><div class="ql-icon">🛠️</div><span>Browse Services</span></a>
+      <a href="user-appointments.html?book=1" class="quick-link"><div class="ql-icon">➕</div><span>Book Appointment</span></a>
+    </div>
+
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  requireAuth();
+  buildSidebar('dashboard');
+
+  const userId = currentUserId();
+  document.getElementById('user-name').textContent = currentUserName();
+
+  async function loadDashboard() {
+    const [myAppts, services] = await Promise.all([
+      apiFetch(`/appointments/user/${userId}`),
+      apiFetch('/services?size=1')
+    ]);
+
+    if (myAppts.ok) {
+      const appts = myAppts.data || [];
+      document.getElementById('stat-total').textContent     = appts.length;
+      document.getElementById('stat-pending').textContent   = appts.filter(a => a.status === 'PENDING').length;
+      document.getElementById('stat-confirmed').textContent = appts.filter(a => a.status === 'CONFIRMED').length;
+
+      const recent = appts.slice(0, 5);
+      const container = document.getElementById('recent-appointments');
+      if (recent.length) {
+        const rows = recent.map(a => `
+          <tr>
+            <td>${a.id}</td>
+            <td>${a.service?.name || '—'}</td>
+            <td>${a.specialist?.name || '—'}</td>
+            <td>${formatDateTime(a.appointmentTime)}</td>
+            <td>${statusBadge(a.status)}</td>
+          </tr>`).join('');
+        container.innerHTML = `<table><thead><tr><th>ID</th><th>Service</th><th>Specialist</th><th>Date & Time</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } else {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No appointments yet. <a href="user-appointments.html?book=1" style="color:var(--primary)">Book one now!</a></p></div>';
+      }
+    }
+
+    if (services.ok) document.getElementById('stat-services').textContent = services.data.totalElements ?? '—';
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

@@ -1,118 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Service Appointment — Dashboard</title>
+  <title>Dashboard — ServiceBook Admin</title>
   <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
 
-<aside class="sidebar">
-  <div class="sidebar-brand">
-    <h2>📅 ServiceBook</h2>
-    <p>Appointment System</p>
-  </div>
-  <nav class="sidebar-nav">
-    <a href="index.html" class="nav-item active"><span class="icon">🏠</span> Dashboard</a>
-    <a href="users.html" class="nav-item"><span class="icon">👥</span> Users</a>
-    <a href="services.html" class="nav-item"><span class="icon">🛠️</span> Services</a>
-    <a href="categories.html" class="nav-item"><span class="icon">🏷️</span> Categories</a>
-    <a href="appointments.html" class="nav-item"><span class="icon">📋</span> Appointments</a>
-    <a href="locations.html" class="nav-item"><span class="icon">📍</span> Locations</a>
-  </nav>
-  <div class="sidebar-footer">Service Appointment v1.0</div>
-</aside>
+<aside class="sidebar" id="sidebar"></aside>
 
 <main class="main">
   <div class="topbar">
     <h1>Dashboard</h1>
-    <div class="topbar-right">
-      <span class="badge">Port 8081</span>
-    </div>
+    <div class="topbar-right" id="topbar-user"></div>
   </div>
   <div class="content">
 
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-icon blue">👥</div>
-        <div class="stat-info">
-          <h3 id="stat-users">—</h3>
-          <p>Total Users</p>
-        </div>
+        <div class="stat-info"><h3 id="stat-users">—</h3><p>Total Users</p></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon green">🛠️</div>
-        <div class="stat-info">
-          <h3 id="stat-services">—</h3>
-          <p>Services</p>
-        </div>
+        <div class="stat-info"><h3 id="stat-services">—</h3><p>Services</p></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon orange">📋</div>
-        <div class="stat-info">
-          <h3 id="stat-appointments">—</h3>
-          <p>Appointments</p>
-        </div>
+        <div class="stat-info"><h3 id="stat-appointments">—</h3><p>Appointments</p></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon purple">🏷️</div>
-        <div class="stat-info">
-          <h3 id="stat-categories">—</h3>
-          <p>Categories</p>
-        </div>
+        <div class="stat-info"><h3 id="stat-categories">—</h3><p>Categories</p></div>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:24px;">
-      <div class="card-header"><h3>Recent Appointments</h3><a href="appointments.html" class="btn btn-outline btn-sm">View All</a></div>
+      <div class="card-header">
+        <h3>Recent Appointments</h3>
+        <a href="appointments.html" class="btn btn-outline btn-sm">View All</a>
+      </div>
       <div class="card-body">
         <div id="recent-appointments"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
     <div class="quick-links">
-      <a href="users.html" class="quick-link"><div class="ql-icon">👥</div><span>Manage Users</span></a>
-      <a href="services.html" class="quick-link"><div class="ql-icon">🛠️</div><span>Manage Services</span></a>
-      <a href="categories.html" class="quick-link"><div class="ql-icon">🏷️</div><span>Manage Categories</span></a>
+      <a href="users.html"        class="quick-link"><div class="ql-icon">👥</div><span>Manage Users</span></a>
+      <a href="services.html"     class="quick-link"><div class="ql-icon">🛠️</div><span>Manage Services</span></a>
+      <a href="categories.html"   class="quick-link"><div class="ql-icon">🏷️</div><span>Manage Categories</span></a>
       <a href="appointments.html" class="quick-link"><div class="ql-icon">📋</div><span>Manage Appointments</span></a>
-      <a href="locations.html" class="quick-link"><div class="ql-icon">📍</div><span>View Locations</span></a>
+      <a href="locations.html"    class="quick-link"><div class="ql-icon">📍</div><span>View Locations</span></a>
     </div>
 
   </div>
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/auth.js"></script>
 <script>
-async function loadStats() {
-  const [users, services, appointments, categories] = await Promise.all([
-    apiFetch('/users?size=1'),
-    apiFetch('/services?size=1'),
-    apiFetch('/appointments?size=5'),
-    apiFetch('/categories')
-  ]);
+  requireAuth(true); // admin only
+  buildSidebar('dashboard');
 
-  if (users.ok) document.getElementById('stat-users').textContent = users.data.totalElements ?? '—';
-  if (services.ok) document.getElementById('stat-services').textContent = services.data.totalElements ?? '—';
-  if (appointments.ok) document.getElementById('stat-appointments').textContent = appointments.data.totalElements ?? '—';
-  if (categories.ok) document.getElementById('stat-categories').textContent = Array.isArray(categories.data) ? categories.data.length : '—';
+  async function loadStats() {
+    const [users, services, appointments, categories] = await Promise.all([
+      apiFetch('/users?size=1'),
+      apiFetch('/services?size=1'),
+      apiFetch('/appointments?size=5&direction=DESC'),
+      apiFetch('/categories')
+    ]);
 
-  const container = document.getElementById('recent-appointments');
-  if (appointments.ok && appointments.data.content?.length) {
-    const rows = appointments.data.content.map(a => `
-      <tr>
-        <td>${a.id}</td>
-        <td>${a.user?.name || '—'}</td>
-        <td>${a.service?.name || '—'}</td>
-        <td>${formatDateTime(a.appointmentTime)}</td>
-        <td>${statusBadge(a.status)}</td>
-      </tr>`).join('');
-    container.innerHTML = `<table><thead><tr><th>ID</th><th>User</th><th>Service</th><th>Time</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
-  } else {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No appointments yet</p></div>';
+    if (users.ok)        document.getElementById('stat-users').textContent        = users.data.totalElements ?? '—';
+    if (services.ok)     document.getElementById('stat-services').textContent     = services.data.totalElements ?? '—';
+    if (appointments.ok) document.getElementById('stat-appointments').textContent = appointments.data.totalElements ?? '—';
+    if (categories.ok)   document.getElementById('stat-categories').textContent   = Array.isArray(categories.data) ? categories.data.length : '—';
+
+    const container = document.getElementById('recent-appointments');
+    if (appointments.ok && appointments.data.content?.length) {
+      const rows = appointments.data.content.map(a => `
+        <tr>
+          <td>${a.id}</td>
+          <td>${a.user?.name || '—'}</td>
+          <td>${a.service?.name || '—'}</td>
+          <td>${formatDateTime(a.appointmentTime)}</td>
+          <td>${statusBadge(a.status)}</td>
+        </tr>`).join('');
+      container.innerHTML = `<table><thead><tr><th>ID</th><th>User</th><th>Service</th><th>Time</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+    } else {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No appointments yet</p></div>';
+    }
   }
-}
-loadStats();
+  loadStats();
 </script>
 </body>
 </html>

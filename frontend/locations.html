@@ -3,56 +3,38 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Locations — ServiceBook</title>
+  <title>Locations — ServiceBook Admin</title>
   <link rel="stylesheet" href="css/style.css"/>
   <style>
     .loc-type { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
     .loc-PROVINCE { background: #dbeafe; color: #1e40af; }
     .loc-DISTRICT { background: #dcfce7; color: #166534; }
-    .loc-SECTOR { background: #fef3c7; color: #92400e; }
-    .loc-CELL { background: #ede9fe; color: #5b21b6; }
-    .loc-VILLAGE { background: #fce7f3; color: #9d174d; }
-    .hierarchy-nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-    .breadcrumb { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; font-size: 0.875rem; color: var(--text-light); }
+    .loc-SECTOR   { background: #fef3c7; color: #92400e; }
+    .loc-CELL     { background: #ede9fe; color: #5b21b6; }
+    .loc-VILLAGE  { background: #fce7f3; color: #9d174d; }
+    .breadcrumb { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; font-size: 0.875rem; color: var(--text-light); flex-wrap: wrap; }
     .breadcrumb span { cursor: pointer; color: var(--primary); }
     .breadcrumb span:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 
-<aside class="sidebar">
-  <div class="sidebar-brand"><h2>📅 ServiceBook</h2><p>Appointment System</p></div>
-  <nav class="sidebar-nav">
-    <a href="index.html" class="nav-item"><span class="icon">🏠</span> Dashboard</a>
-    <a href="users.html" class="nav-item"><span class="icon">👥</span> Users</a>
-    <a href="services.html" class="nav-item"><span class="icon">🛠️</span> Services</a>
-    <a href="categories.html" class="nav-item"><span class="icon">🏷️</span> Categories</a>
-    <a href="appointments.html" class="nav-item"><span class="icon">📋</span> Appointments</a>
-    <a href="locations.html" class="nav-item active"><span class="icon">📍</span> Locations</a>
-  </nav>
-  <div class="sidebar-footer">Service Appointment v1.0</div>
-</aside>
+<aside class="sidebar" id="sidebar"></aside>
 
 <main class="main">
   <div class="topbar">
     <h1>Locations</h1>
-    <div class="topbar-right">
+    <div class="topbar-right" id="topbar-user">
       <button class="btn btn-primary" onclick="openAddModal()">+ Add Location</button>
     </div>
   </div>
   <div class="content">
     <div id="alert" class="alert"></div>
-
-    <div class="hierarchy-nav" id="hierarchy-nav">
-      <button class="btn btn-outline" onclick="loadProvinces()">🗺️ All Provinces</button>
-    </div>
-
     <div class="breadcrumb" id="breadcrumb"></div>
-
     <div class="search-bar">
       <input type="text" id="search" placeholder="Search locations…" oninput="filterTable()"/>
+      <button class="btn btn-outline" onclick="loadProvinces()">🗺️ All Provinces</button>
     </div>
-
     <div class="card">
       <div class="card-header"><h3 id="table-title">Provinces</h3><span id="total-badge" class="badge">0</span></div>
       <div class="card-body">
@@ -62,11 +44,10 @@
   </div>
 </main>
 
-<!-- Add Location Modal -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 id="modal-title">Add Location</h3>
+      <h3>Add Location</h3>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body">
@@ -90,7 +71,7 @@
           <option value="VILLAGE">VILLAGE</option>
         </select>
       </div>
-      <div class="form-group" id="parent-group">
+      <div class="form-group">
         <label>Parent Location ID</label>
         <input class="form-control" id="f-parent" type="number" placeholder="Leave empty for Province"/>
       </div>
@@ -103,126 +84,108 @@
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/auth.js"></script>
 <script>
-let allLocations = [], breadcrumbStack = [];
+  requireAuth(true);
+  buildSidebar('locations');
 
-async function loadProvinces() {
-  breadcrumbStack = [];
-  updateBreadcrumb();
-  document.getElementById('table-title').textContent = 'Provinces';
-  const res = await apiFetch('/locations/provinces');
-  if (!res.ok) { showError(); return; }
-  allLocations = res.data || [];
-  document.getElementById('total-badge').textContent = allLocations.length;
-  renderTable(allLocations, true);
-}
+  let allLocations = [], breadcrumbStack = [];
 
-async function loadChildren(parentId, parentName, parentType) {
-  breadcrumbStack.push({ id: parentId, name: parentName, type: parentType });
-  updateBreadcrumb();
-  document.getElementById('table-title').textContent = `${parentName} — Sub-locations`;
-  const res = await apiFetch(`/locations/byParent/${parentId}`);
-  if (!res.ok) { showError(); return; }
-  allLocations = res.data || [];
-  document.getElementById('total-badge').textContent = allLocations.length;
-  renderTable(allLocations, allLocations.some(l => l.type !== 'VILLAGE'));
-}
-
-function updateBreadcrumb() {
-  const bc = document.getElementById('breadcrumb');
-  if (!breadcrumbStack.length) { bc.innerHTML = ''; return; }
-  let html = '<span onclick="loadProvinces()">Provinces</span>';
-  breadcrumbStack.forEach((item, i) => {
-    html += ' › ';
-    if (i < breadcrumbStack.length - 1)
-      html += `<span onclick="navTo(${i})">${item.name}</span>`;
-    else
-      html += `<strong>${item.name}</strong>`;
-  });
-  bc.innerHTML = html;
-}
-
-async function navTo(index) {
-  const item = breadcrumbStack[index];
-  breadcrumbStack = breadcrumbStack.slice(0, index);
-  await loadChildren(item.id, item.name, item.type);
-}
-
-function renderTable(locs, drillable = false) {
-  if (!locs.length) {
-    document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">📍</div><p>No locations found</p></div>';
-    return;
+  async function loadProvinces() {
+    breadcrumbStack = [];
+    updateBreadcrumb();
+    document.getElementById('table-title').textContent = 'Provinces';
+    const res = await apiFetch('/locations/provinces');
+    if (!res.ok) { showError(); return; }
+    allLocations = res.data || [];
+    document.getElementById('total-badge').textContent = allLocations.length;
+    renderTable(allLocations, true);
   }
-  const rows = locs.map(l => `
-    <tr>
-      <td>${l.id}</td>
-      <td>
-        ${drillable
+
+  async function loadChildren(parentId, parentName, parentType) {
+    breadcrumbStack.push({ id: parentId, name: parentName, type: parentType });
+    updateBreadcrumb();
+    document.getElementById('table-title').textContent = `${parentName} — Sub-locations`;
+    const res = await apiFetch(`/locations/byParent/${parentId}`);
+    if (!res.ok) { showError(); return; }
+    allLocations = res.data || [];
+    document.getElementById('total-badge').textContent = allLocations.length;
+    renderTable(allLocations, allLocations.some(l => l.type !== 'VILLAGE'));
+  }
+
+  function updateBreadcrumb() {
+    const bc = document.getElementById('breadcrumb');
+    if (!breadcrumbStack.length) { bc.innerHTML = ''; return; }
+    let html = '<span onclick="loadProvinces()">Provinces</span>';
+    breadcrumbStack.forEach((item, i) => {
+      html += ' › ';
+      if (i < breadcrumbStack.length - 1) html += `<span onclick="navTo(${i})">${item.name}</span>`;
+      else html += `<strong>${item.name}</strong>`;
+    });
+    bc.innerHTML = html;
+  }
+
+  async function navTo(index) {
+    const item = breadcrumbStack[index];
+    breadcrumbStack = breadcrumbStack.slice(0, index);
+    await loadChildren(item.id, item.name, item.type);
+  }
+
+  function renderTable(locs, drillable = false) {
+    if (!locs.length) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">📍</div><p>No locations found</p></div>'; return; }
+    const rows = locs.map(l => `
+      <tr>
+        <td>${l.id}</td>
+        <td>${drillable
           ? `<a href="#" onclick="loadChildren(${l.id},'${l.name}','${l.type}');return false;" style="color:var(--primary);font-weight:600;">${l.name}</a>`
-          : `<strong>${l.name}</strong>`}
-      </td>
-      <td>${l.code || '—'}</td>
-      <td><span class="loc-type loc-${l.type}">${l.type}</span></td>
-      <td>${l.parent?.name || '—'}</td>
-    </tr>`).join('');
-  document.getElementById('table-container').innerHTML = `
-    <table>
-      <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Type</th><th>Parent</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
-
-function filterTable() {
-  const q = document.getElementById('search').value.toLowerCase();
-  renderTable(allLocations.filter(l => l.name.toLowerCase().includes(q) || (l.code||'').toLowerCase().includes(q)));
-}
-
-function showError() {
-  document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load locations</p></div>';
-}
-
-function openAddModal() {
-  document.getElementById('f-name').value = '';
-  document.getElementById('f-code').value = '';
-  document.getElementById('f-type').value = 'PROVINCE';
-  document.getElementById('f-parent').value = '';
-  document.getElementById('modal').classList.add('open');
-}
-
-function closeModal() { document.getElementById('modal').classList.remove('open'); }
-
-async function saveLocation() {
-  const name = document.getElementById('f-name').value.trim();
-  const code = document.getElementById('f-code').value.trim();
-  const type = document.getElementById('f-type').value;
-  const parentId = document.getElementById('f-parent').value;
-  const alert = document.getElementById('alert');
-
-  if (!name) return showAlert(alert, 'Location name is required', 'error');
-  if (!type) return showAlert(alert, 'Location type is required', 'error');
-
-  const body = { name, type };
-  if (code) body.code = code;
-
-  let url, method = 'POST';
-  if (parentId) {
-    body.parentId = parseInt(parentId);
-    url = '/locations/saveWithParent';
-  } else {
-    url = '/locations/save';
+          : `<strong>${l.name}</strong>`}</td>
+        <td>${l.code || '—'}</td>
+        <td><span class="loc-type loc-${l.type}">${l.type}</span></td>
+        <td>${l.parent?.name || '—'}</td>
+      </tr>`).join('');
+    document.getElementById('table-container').innerHTML = `
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Type</th><th>Parent</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
 
-  const res = await apiFetch(url, { method, body: JSON.stringify(body) });
-  if (res.ok) {
-    showAlert(alert, 'Location saved!', 'success');
-    closeModal();
-    loadProvinces();
-  } else {
-    showAlert(alert, typeof res.data === 'string' ? res.data : 'Failed to save location', 'error');
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    renderTable(allLocations.filter(l => l.name.toLowerCase().includes(q) || (l.code||'').toLowerCase().includes(q)));
   }
-}
 
-loadProvinces();
+  function showError() { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load locations</p></div>'; }
+
+  function openAddModal() {
+    ['f-name','f-code','f-parent'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-type').value = 'PROVINCE';
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+  async function saveLocation() {
+    const name     = document.getElementById('f-name').value.trim();
+    const code     = document.getElementById('f-code').value.trim();
+    const type     = document.getElementById('f-type').value;
+    const parentId = document.getElementById('f-parent').value;
+    const alertEl  = document.getElementById('alert');
+
+    if (!name) return showAlert(alertEl, 'Location name is required', 'error');
+
+    const body = { name, type };
+    if (code) body.code = code;
+    if (parentId) body.parentId = parseInt(parentId);
+
+    const url = parentId ? '/locations/saveWithParent' : '/locations/save';
+    const res = await apiFetch(url, { method: 'POST', body: JSON.stringify(body) });
+
+    if (res.ok) { showAlert(alertEl, 'Location saved!', 'success'); closeModal(); loadProvinces(); }
+    else showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Failed to save location', 'error');
+  }
+
+  loadProvinces();
 </script>
 </body>
 </html>

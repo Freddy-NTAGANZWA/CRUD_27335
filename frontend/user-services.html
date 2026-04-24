@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Browse Services — ServiceBook</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="topbar">
+    <h1>Browse Services</h1>
+    <div class="topbar-right" id="topbar-user"></div>
+  </div>
+  <div class="content">
+    <div id="alert" class="alert"></div>
+
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="Search services…" oninput="filterServices()"/>
+    </div>
+
+    <div id="services-container"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</main>
+
+<!-- Quick Book Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>Book: <span id="modal-service-name"></span></h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Appointment Date & Time *</label>
+        <input class="form-control" id="f-time" type="datetime-local"/>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea class="form-control" id="f-notes" rows="3" placeholder="Any special requests…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmBook()">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  requireAuth();
+  buildSidebar('browse-services');
+
+  const userId = currentUserId();
+  let allServices = [], selectedServiceId = null;
+
+  async function loadServices() {
+    const res = await apiFetch('/services?size=100');
+    if (!res.ok) { document.getElementById('services-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load services</p></div>'; return; }
+    allServices = res.data.content || [];
+    renderServices(allServices);
+  }
+
+  function renderServices(services) {
+    if (!services.length) {
+      document.getElementById('services-container').innerHTML = '<div class="empty-state"><div class="empty-icon">🛠️</div><p>No services available</p></div>';
+      return;
+    }
+    const cards = services.map(s => `
+      <div class="service-card">
+        <h4>${s.name}</h4>
+        <p>${s.description || 'No description available.'}</p>
+        ${s.price != null ? `<div class="service-price">RWF ${Number(s.price).toLocaleString()}</div>` : '<div class="service-price" style="color:var(--text-light);font-size:0.9rem;">Price on request</div>'}
+        ${s.categories?.length ? `<div style="margin-bottom:12px;">${s.categories.map(c=>`<span class="status status-confirmed">${c.name}</span>`).join(' ')}</div>` : ''}
+        <button class="btn btn-primary" style="width:100%;" onclick="openBookModal(${s.id},'${s.name.replace(/'/g,"\\'")}')">📅 Book Now</button>
+      </div>`).join('');
+    document.getElementById('services-container').innerHTML = `<div class="service-grid">${cards}</div>`;
+  }
+
+  function filterServices() {
+    const q = document.getElementById('search').value.toLowerCase();
+    renderServices(allServices.filter(s => s.name.toLowerCase().includes(q) || (s.description||'').toLowerCase().includes(q)));
+  }
+
+  function openBookModal(serviceId, serviceName) {
+    selectedServiceId = serviceId;
+    document.getElementById('modal-service-name').textContent = serviceName;
+    document.getElementById('f-time').value = '';
+    document.getElementById('f-notes').value = '';
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() { document.getElementById('modal').classList.remove('open'); selectedServiceId = null; }
+
+  async function confirmBook() {
+    const time    = document.getElementById('f-time').value;
+    const notes   = document.getElementById('f-notes').value.trim();
+    const alertEl = document.getElementById('alert');
+
+    if (!time) return showAlert(alertEl, 'Please select a date and time', 'error');
+
+    const body = {
+      userId: userId,
+      serviceId: selectedServiceId,
+      appointmentTime: new Date(time).toISOString().slice(0,19),
+      status: 'PENDING',
+      notes
+    };
+
+    const res = await apiFetch('/appointments/save', { method: 'POST', body: JSON.stringify(body) });
+    if (res.ok) {
+      showAlert(alertEl, 'Appointment booked! Check My Appointments to track it.', 'success');
+      closeModal();
+    } else {
+      showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Booking failed', 'error');
+    }
+  }
+
+  loadServices();
+</script>
+</body>
+</html>

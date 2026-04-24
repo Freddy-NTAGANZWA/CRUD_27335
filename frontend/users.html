@@ -3,28 +3,17 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Users — ServiceBook</title>
+  <title>Users — ServiceBook Admin</title>
   <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
 
-<aside class="sidebar">
-  <div class="sidebar-brand"><h2>📅 ServiceBook</h2><p>Appointment System</p></div>
-  <nav class="sidebar-nav">
-    <a href="index.html" class="nav-item"><span class="icon">🏠</span> Dashboard</a>
-    <a href="users.html" class="nav-item active"><span class="icon">👥</span> Users</a>
-    <a href="services.html" class="nav-item"><span class="icon">🛠️</span> Services</a>
-    <a href="categories.html" class="nav-item"><span class="icon">🏷️</span> Categories</a>
-    <a href="appointments.html" class="nav-item"><span class="icon">📋</span> Appointments</a>
-    <a href="locations.html" class="nav-item"><span class="icon">📍</span> Locations</a>
-  </nav>
-  <div class="sidebar-footer">Service Appointment v1.0</div>
-</aside>
+<aside class="sidebar" id="sidebar"></aside>
 
 <main class="main">
   <div class="topbar">
     <h1>Users</h1>
-    <div class="topbar-right">
+    <div class="topbar-right" id="topbar-user">
       <button class="btn btn-primary" onclick="openModal()">+ Add User</button>
     </div>
   </div>
@@ -43,7 +32,6 @@
   </div>
 </main>
 
-<!-- Modal -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-header">
@@ -68,7 +56,7 @@
         </div>
         <div class="form-group">
           <label>Role ID</label>
-          <input class="form-control" id="f-role" type="number" placeholder="e.g. 1"/>
+          <input class="form-control" id="f-role" type="number" placeholder="e.g. 1=CUSTOMER, 3=ADMIN"/>
         </div>
       </div>
       <div class="form-group">
@@ -84,119 +72,116 @@
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/auth.js"></script>
 <script>
-let allUsers = [], currentPage = 0, pageSize = 10, editId = null;
+  requireAuth(true);
+  buildSidebar('users');
 
-async function loadUsers(page = 0) {
-  currentPage = page;
-  const res = await apiFetch(`/users?page=${page}&size=${pageSize}&sortBy=id`);
-  if (!res.ok) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load users</p></div>'; return; }
-  allUsers = res.data.content || [];
-  document.getElementById('total-badge').textContent = res.data.totalElements || 0;
-  renderTable(allUsers);
-  renderPagination(res.data);
-}
+  let allUsers = [], currentPage = 0, pageSize = 10, editId = null;
 
-function renderTable(users) {
-  if (!users.length) {
-    document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>No users found</p></div>';
-    return;
+  async function loadUsers(page = 0) {
+    currentPage = page;
+    const res = await apiFetch(`/users?page=${page}&size=${pageSize}&sortBy=id`);
+    if (!res.ok) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load users</p></div>'; return; }
+    allUsers = res.data.content || [];
+    document.getElementById('total-badge').textContent = res.data.totalElements || 0;
+    renderTable(allUsers);
+    renderPagination(res.data);
   }
-  const rows = users.map(u => `
-    <tr>
-      <td>${u.id}</td>
-      <td><strong>${u.name}</strong></td>
-      <td>${u.email}</td>
-      <td>${u.role?.name || '—'}</td>
-      <td>${u.village?.name || '—'}</td>
-      <td>
-        <button class="btn btn-warning btn-sm" onclick="editUser(${u.id})">✏️ Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${u.name}')">🗑️ Delete</button>
-      </td>
-    </tr>`).join('');
-  document.getElementById('table-container').innerHTML = `
-    <table>
-      <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Village</th><th>Actions</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
 
-function renderPagination(data) {
-  const pg = document.getElementById('pagination');
-  if (data.totalPages <= 1) { pg.innerHTML = ''; return; }
-  let html = `<button class="page-btn" onclick="loadUsers(${currentPage-1})" ${currentPage===0?'disabled':''}>‹ Prev</button>`;
-  for (let i = 0; i < data.totalPages; i++)
-    html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="loadUsers(${i})">${i+1}</button>`;
-  html += `<button class="page-btn" onclick="loadUsers(${currentPage+1})" ${currentPage===data.totalPages-1?'disabled':''}>Next ›</button>`;
-  html += `<span class="page-info">Page ${currentPage+1} of ${data.totalPages}</span>`;
-  pg.innerHTML = html;
-}
-
-function filterTable() {
-  const q = document.getElementById('search').value.toLowerCase();
-  renderTable(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
-}
-
-function openModal(title = 'Add User') {
-  editId = null;
-  document.getElementById('modal-title').textContent = title;
-  ['f-name','f-email','f-password','f-role','f-village'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('modal').classList.add('open');
-}
-
-function closeModal() { document.getElementById('modal').classList.remove('open'); }
-
-async function editUser(id) {
-  const res = await apiFetch(`/users/${id}`);
-  if (!res.ok) return;
-  const u = res.data;
-  editId = id;
-  document.getElementById('modal-title').textContent = 'Edit User';
-  document.getElementById('f-name').value = u.name || '';
-  document.getElementById('f-email').value = u.email || '';
-  document.getElementById('f-password').value = '';
-  document.getElementById('f-role').value = u.role?.id || '';
-  document.getElementById('f-village').value = u.village?.id || '';
-  document.getElementById('modal').classList.add('open');
-}
-
-async function saveUser() {
-  const name = document.getElementById('f-name').value.trim();
-  const email = document.getElementById('f-email').value.trim();
-  const password = document.getElementById('f-password').value.trim();
-  const roleId = document.getElementById('f-role').value;
-  const villageId = document.getElementById('f-village').value;
-  const alert = document.getElementById('alert');
-
-  if (!name || !email) return showAlert(alert, 'Name and email are required', 'error');
-  if (!editId && !password) return showAlert(alert, 'Password is required', 'error');
-
-  const body = { name, email };
-  if (password) body.password = password;
-  if (roleId) body.role = { id: parseInt(roleId) };
-  if (villageId) body.village = { id: parseInt(villageId) };
-
-  const res = editId
-    ? await apiFetch(`/users/update/${editId}`, { method: 'PUT', body: JSON.stringify(body) })
-    : await apiFetch('/users/save', { method: 'POST', body: JSON.stringify(body) });
-
-  if (res.ok) {
-    showAlert(alert, editId ? 'User updated!' : 'User created!', 'success');
-    closeModal(); loadUsers(currentPage);
-  } else {
-    showAlert(alert, typeof res.data === 'string' ? res.data : 'Operation failed', 'error');
+  function renderTable(users) {
+    if (!users.length) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>No users found</p></div>'; return; }
+    const rows = users.map(u => `
+      <tr>
+        <td>${u.id}</td>
+        <td><strong>${u.name}</strong></td>
+        <td>${u.email}</td>
+        <td><span class="role-chip ${u.role?.name==='ADMIN'?'chip-admin':'chip-user'}">${u.role?.name || '—'}</span></td>
+        <td>${u.village?.name || '—'}</td>
+        <td>
+          <button class="btn btn-warning btn-sm" onclick="editUser(${u.id})">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.name}')">🗑️ Delete</button>
+        </td>
+      </tr>`).join('');
+    document.getElementById('table-container').innerHTML = `
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Village</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
-}
 
-async function deleteUser(id, name) {
-  if (!confirmDelete(name)) return;
-  const res = await apiFetch(`/users/delete/${id}`, { method: 'DELETE' });
-  const alert = document.getElementById('alert');
-  if (res.ok) { showAlert(alert, 'User deleted!', 'success'); loadUsers(currentPage); }
-  else showAlert(alert, 'Failed to delete user', 'error');
-}
+  function renderPagination(data) {
+    const pg = document.getElementById('pagination');
+    if (data.totalPages <= 1) { pg.innerHTML = ''; return; }
+    let html = `<button class="page-btn" onclick="loadUsers(${currentPage-1})" ${currentPage===0?'disabled':''}>‹ Prev</button>`;
+    for (let i = 0; i < data.totalPages; i++)
+      html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="loadUsers(${i})">${i+1}</button>`;
+    html += `<button class="page-btn" onclick="loadUsers(${currentPage+1})" ${currentPage===data.totalPages-1?'disabled':''}>Next ›</button>`;
+    html += `<span class="page-info">Page ${currentPage+1} of ${data.totalPages}</span>`;
+    pg.innerHTML = html;
+  }
 
-loadUsers();
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    renderTable(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
+  }
+
+  function openModal() {
+    editId = null;
+    document.getElementById('modal-title').textContent = 'Add User';
+    ['f-name','f-email','f-password','f-role','f-village'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+  async function editUser(id) {
+    const res = await apiFetch(`/users/${id}`);
+    if (!res.ok) return;
+    const u = res.data;
+    editId = id;
+    document.getElementById('modal-title').textContent = 'Edit User';
+    document.getElementById('f-name').value    = u.name || '';
+    document.getElementById('f-email').value   = u.email || '';
+    document.getElementById('f-password').value = '';
+    document.getElementById('f-role').value    = u.role?.id || '';
+    document.getElementById('f-village').value = u.village?.id || '';
+    document.getElementById('modal').classList.add('open');
+  }
+
+  async function saveUser() {
+    const name     = document.getElementById('f-name').value.trim();
+    const email    = document.getElementById('f-email').value.trim();
+    const password = document.getElementById('f-password').value.trim();
+    const roleId   = document.getElementById('f-role').value;
+    const villageId= document.getElementById('f-village').value;
+    const alertEl  = document.getElementById('alert');
+
+    if (!name || !email) return showAlert(alertEl, 'Name and email are required', 'error');
+    if (!editId && !password) return showAlert(alertEl, 'Password is required', 'error');
+
+    const body = { name, email };
+    if (password) body.password = password;
+    if (roleId)   body.role    = { id: parseInt(roleId) };
+    if (villageId) body.village = { id: parseInt(villageId) };
+
+    const res = editId
+      ? await apiFetch(`/users/update/${editId}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await apiFetch('/users/save', { method: 'POST', body: JSON.stringify(body) });
+
+    if (res.ok) { showAlert(alertEl, editId ? 'User updated!' : 'User created!', 'success'); closeModal(); loadUsers(currentPage); }
+    else showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Operation failed', 'error');
+  }
+
+  async function deleteUser(id, name) {
+    if (!confirmDelete(name)) return;
+    const res = await apiFetch(`/users/delete/${id}`, { method: 'DELETE' });
+    const alertEl = document.getElementById('alert');
+    if (res.ok) { showAlert(alertEl, 'User deleted!', 'success'); loadUsers(currentPage); }
+    else showAlert(alertEl, 'Failed to delete user', 'error');
+  }
+
+  loadUsers();
 </script>
 </body>
 </html>
