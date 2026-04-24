@@ -5,7 +5,6 @@ import com.appointment.repository.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import java.util.Arrays;
 
 @Configuration
 public class DataSeeder {
@@ -17,31 +16,36 @@ public class DataSeeder {
             UserRepository userRepository) {
         return args -> {
 
-            // ── Roles ──────────────────────────────────────────────────────────
-            if (roleRepository.count() == 0) {
-                Role customer = roleRepository.save(Role.builder().name("CUSTOMER").build());
-                Role staff    = roleRepository.save(Role.builder().name("STAFF").build());
-                Role admin    = roleRepository.save(Role.builder().name("ADMIN").build());
+            // ── Roles (always ensure all 3 exist) ─────────────────────────────
+            if (!roleRepository.existsByName("CUSTOMER"))
+                roleRepository.save(Role.builder().name("CUSTOMER").build());
+            if (!roleRepository.existsByName("STAFF"))
+                roleRepository.save(Role.builder().name("STAFF").build());
+            if (!roleRepository.existsByName("ADMIN"))
+                roleRepository.save(Role.builder().name("ADMIN").build());
 
-                // ── Default admin account ──────────────────────────────────────
-                if (!userRepository.existsByEmail("admin@servicebook.rw")) {
-                    userRepository.save(User.builder()
-                            .name("System Admin")
-                            .email("admin@servicebook.rw")
-                            .password("admin123")
-                            .role(admin)
-                            .build());
-                }
+            // ── Default accounts (always ensure they exist) ────────────────────
+            Role adminRole    = roleRepository.findByName("ADMIN").orElseThrow();
+            Role customerRole = roleRepository.findByName("CUSTOMER").orElseThrow();
 
-                // ── Demo customer account ──────────────────────────────────────
-                if (!userRepository.existsByEmail("user@servicebook.rw")) {
-                    userRepository.save(User.builder()
-                            .name("Demo User")
-                            .email("user@servicebook.rw")
-                            .password("user123")
-                            .role(customer)
-                            .build());
-                }
+            if (!userRepository.existsByEmail("admin@servicebook.rw")) {
+                userRepository.save(User.builder()
+                        .name("System Admin")
+                        .email("admin@servicebook.rw")
+                        .password("admin123")
+                        .role(adminRole)
+                        .build());
+                System.out.println(">>> Admin account created: admin@servicebook.rw / admin123");
+            }
+
+            if (!userRepository.existsByEmail("user@servicebook.rw")) {
+                userRepository.save(User.builder()
+                        .name("Demo User")
+                        .email("user@servicebook.rw")
+                        .password("user123")
+                        .role(customerRole)
+                        .build());
+                System.out.println(">>> Demo user created: user@servicebook.rw / user123");
             }
 
             // ── Locations ──────────────────────────────────────────────────────
