@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Categories — ServiceBook</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>📅 ServiceBook</h2><p>Appointment System</p></div>
+  <nav class="sidebar-nav">
+    <a href="index.html" class="nav-item"><span class="icon">🏠</span> Dashboard</a>
+    <a href="users.html" class="nav-item"><span class="icon">👥</span> Users</a>
+    <a href="services.html" class="nav-item"><span class="icon">🛠️</span> Services</a>
+    <a href="categories.html" class="nav-item active"><span class="icon">🏷️</span> Categories</a>
+    <a href="appointments.html" class="nav-item"><span class="icon">📋</span> Appointments</a>
+    <a href="locations.html" class="nav-item"><span class="icon">📍</span> Locations</a>
+  </nav>
+  <div class="sidebar-footer">Service Appointment v1.0</div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <h1>Categories</h1>
+    <div class="topbar-right">
+      <button class="btn btn-primary" onclick="openModal()">+ Add Category</button>
+    </div>
+  </div>
+  <div class="content">
+    <div id="alert" class="alert"></div>
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="Search categories…" oninput="filterTable()"/>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>All Categories</h3><span id="total-badge" class="badge">0</span></div>
+      <div class="card-body">
+        <div id="table-container"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Add Category</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Category Name *</label>
+        <input class="form-control" id="f-name" placeholder="e.g. Beauty & Wellness"/>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea class="form-control" id="f-desc" rows="3" placeholder="Brief description…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+let allCategories = [], editId = null;
+
+async function loadCategories() {
+  const res = await apiFetch('/categories');
+  if (!res.ok) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load categories</p></div>'; return; }
+  allCategories = res.data || [];
+  document.getElementById('total-badge').textContent = allCategories.length;
+  renderTable(allCategories);
+}
+
+function renderTable(cats) {
+  if (!cats.length) {
+    document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">🏷️</div><p>No categories found</p></div>';
+    return;
+  }
+  const rows = cats.map(c => `
+    <tr>
+      <td>${c.id}</td>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.description || '—'}</td>
+      <td>
+        <button class="btn btn-warning btn-sm" onclick="editCategory(${c.id})">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.id}, '${c.name}')">🗑️ Delete</button>
+      </td>
+    </tr>`).join('');
+  document.getElementById('table-container').innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function filterTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  renderTable(allCategories.filter(c => c.name.toLowerCase().includes(q)));
+}
+
+function openModal() {
+  editId = null;
+  document.getElementById('modal-title').textContent = 'Add Category';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+async function editCategory(id) {
+  const res = await apiFetch(`/categories/${id}`);
+  if (!res.ok) return;
+  const c = res.data;
+  editId = id;
+  document.getElementById('modal-title').textContent = 'Edit Category';
+  document.getElementById('f-name').value = c.name || '';
+  document.getElementById('f-desc').value = c.description || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+async function saveCategory() {
+  const name = document.getElementById('f-name').value.trim();
+  const description = document.getElementById('f-desc').value.trim();
+  const alert = document.getElementById('alert');
+
+  if (!name) return showAlert(alert, 'Category name is required', 'error');
+
+  const body = { name, description };
+
+  const res = editId
+    ? await apiFetch(`/categories/${editId}`, { method: 'PUT', body: JSON.stringify(body) })
+    : await apiFetch('/categories', { method: 'POST', body: JSON.stringify(body) });
+
+  if (res.ok) {
+    showAlert(alert, editId ? 'Category updated!' : 'Category created!', 'success');
+    closeModal(); loadCategories();
+  } else {
+    showAlert(alert, typeof res.data === 'string' ? res.data : 'Operation failed', 'error');
+  }
+}
+
+async function deleteCategory(id, name) {
+  if (!confirmDelete(name)) return;
+  const res = await apiFetch(`/categories/${id}`, { method: 'DELETE' });
+  const alert = document.getElementById('alert');
+  if (res.ok) { showAlert(alert, 'Category deleted!', 'success'); loadCategories(); }
+  else showAlert(alert, 'Failed to delete category', 'error');
+}
+
+loadCategories();
+</script>
+</body>
+</html>
