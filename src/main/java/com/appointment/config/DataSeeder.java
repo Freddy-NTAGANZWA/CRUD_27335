@@ -16,57 +16,50 @@ public class DataSeeder {
             RoleRepository roleRepository,
             UserRepository userRepository) {
         return args -> {
+
+            // ── Roles ──────────────────────────────────────────────────────────
             if (roleRepository.count() == 0) {
-                Role customer = Role.builder().name("CUSTOMER").build();
-                Role staff = Role.builder().name("STAFF").build();
-                Role admin = Role.builder().name("ADMIN").build();
-                roleRepository.saveAll(Arrays.asList(customer, staff, admin));
+                Role customer = roleRepository.save(Role.builder().name("CUSTOMER").build());
+                Role staff    = roleRepository.save(Role.builder().name("STAFF").build());
+                Role admin    = roleRepository.save(Role.builder().name("ADMIN").build());
+
+                // ── Default admin account ──────────────────────────────────────
+                if (!userRepository.existsByEmail("admin@servicebook.rw")) {
+                    userRepository.save(User.builder()
+                            .name("System Admin")
+                            .email("admin@servicebook.rw")
+                            .password("admin123")
+                            .role(admin)
+                            .build());
+                }
+
+                // ── Demo customer account ──────────────────────────────────────
+                if (!userRepository.existsByEmail("user@servicebook.rw")) {
+                    userRepository.save(User.builder()
+                            .name("Demo User")
+                            .email("user@servicebook.rw")
+                            .password("user123")
+                            .role(customer)
+                            .build());
+                }
             }
 
+            // ── Locations ──────────────────────────────────────────────────────
             if (locationRepository.count() == 0) {
-                // Province Level (Level 1)
-                Location kigali = Location.builder()
-                        .name("Kigali City")
-                        .type(LocationType.PROVINCE)
-                        .code("KGL")
-                        .build();
-                locationRepository.save(kigali);
+                Location kigali = locationRepository.save(Location.builder()
+                        .name("Kigali City").type(LocationType.PROVINCE).code("KGL").build());
 
-                // District Level (Level 2)
-                Location gasabo = Location.builder()
-                        .name("Gasabo")
-                        .type(LocationType.DISTRICT)
-                        .code("KGL-GSB")
-                        .parent(kigali)
-                        .build();
-                locationRepository.save(gasabo);
+                Location gasabo = locationRepository.save(Location.builder()
+                        .name("Gasabo").type(LocationType.DISTRICT).code("KGL-GSB").parent(kigali).build());
 
-                // Sector Level (Level 3)
-                Location remera = Location.builder()
-                        .name("Remera")
-                        .type(LocationType.SECTOR)
-                        .code("KGL-GSB-RMR")
-                        .parent(gasabo)
-                        .build();
-                locationRepository.save(remera);
+                Location remera = locationRepository.save(Location.builder()
+                        .name("Remera").type(LocationType.SECTOR).code("KGL-GSB-RMR").parent(gasabo).build());
 
-                // Cell Level (Level 4)
-                Location rukiri = Location.builder()
-                        .name("Rukiri")
-                        .type(LocationType.CELL)
-                        .code("KGL-GSB-RMR-RKR")
-                        .parent(remera)
-                        .build();
-                locationRepository.save(rukiri);
+                Location rukiri = locationRepository.save(Location.builder()
+                        .name("Rukiri").type(LocationType.CELL).code("KGL-GSB-RMR-RKR").parent(remera).build());
 
-                // Village Level (Level 5)
-                Location village1 = Location.builder()
-                        .name("Rukiri I")
-                        .type(LocationType.VILLAGE)
-                        .code("KGL-GSB-RMR-RKR-V1")
-                        .parent(rukiri)
-                        .build();
-                locationRepository.save(village1);
+                locationRepository.save(Location.builder()
+                        .name("Rukiri I").type(LocationType.VILLAGE).code("KGL-GSB-RMR-RKR-V1").parent(rukiri).build());
             }
         };
     }
