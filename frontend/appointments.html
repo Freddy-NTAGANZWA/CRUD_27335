@@ -99,6 +99,36 @@
   </div>
 </div>
 
+<!-- ── Assign Specialist Modal ───────────────────────────────────────────── -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>Confirm & Assign Specialist</h3>
+      <button class="modal-close" onclick="closeAssignModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.875rem;color:var(--text-light);margin-bottom:16px;">
+        Appointment <strong>#<span id="assign-appt-id"></span></strong> —
+        <span id="assign-appt-info"></span>
+      </p>
+      <div class="form-group">
+        <label>Assign Specialist (STAFF member)</label>
+        <select class="form-control" id="assign-specialist">
+          <option value="">— No specialist / assign later —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea class="form-control" id="assign-notes" rows="2" placeholder="Add a note for this confirmation…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-confirm" onclick="submitConfirm()">✅ Confirm Appointment</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Book / Edit Modal ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
@@ -119,8 +149,10 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Specialist ID (optional)</label>
-          <input class="form-control" id="f-specialist" type="number" placeholder="e.g. 3"/>
+          <label>Assign Specialist</label>
+          <select class="form-control" id="f-specialist">
+            <option value="">— None —</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -156,6 +188,19 @@
 
   let allAppointments = [], currentPage = 0, pageSize = 10, editId = null;
   let activeTab = '', detailAppointment = null;
+  let staffList = [], confirmingId = null;
+
+  // ── Load staff list once ──────────────────────────────────────────────────
+  async function loadStaff() {
+    const res = await apiFetch('/users/staff');
+    staffList = res.ok ? (res.data || []) : [];
+    const opts = '<option value="">— No specialist / assign later —</option>' +
+      staffList.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    document.getElementById('assign-specialist').innerHTML = opts;
+    document.getElementById('f-specialist').innerHTML =
+      '<option value="">— None —</option>' +
+      staffList.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
 
   // ── Load ──────────────────────────────────────────────────────────────────
   async function loadAppointments(page = 0) {
@@ -245,7 +290,7 @@
     switch (a.status) {
       case 'PENDING':
         return `
-          <button class="btn btn-confirm btn-sm" onclick="quickStatus(${a.id},'CONFIRMED')" title="Confirm this appointment">✅ Confirm</button>
+          <button class="btn btn-confirm btn-sm" onclick="openAssignModal(${a.id})" title="Confirm and assign specialist">✅ Confirm</button>
           <button class="btn btn-cancel  btn-sm" onclick="quickStatus(${a.id},'CANCELLED')" title="Cancel this appointment">✕ Cancel</button>`;
       case 'CONFIRMED':
         return `
@@ -258,6 +303,51 @@
           <button class="btn btn-confirm btn-sm" onclick="quickStatus(${a.id},'PENDING')" title="Re-open as pending">↩ Re-open</button>`;
       default:
         return '';
+    }
+  }
+
+  // ── Assign Specialist modal ───────────────────────────────────────────────
+  async function openAssignModal(id) {
+    confirmingId = id;
+    const appt = allAppointments.find(a => a.id === id);
+    document.getElementById('assign-appt-id').textContent   = id;
+    document.getElementById('assign-appt-info').textContent =
+      `${appt?.user?.name || '?'} → ${appt?.service?.name || '?'} on ${formatDateTime(appt?.appointmentTime)}`;
+    // Pre-select existing specialist if any
+    const sel = document.getElementById('assign-specialist');
+    sel.value = appt?.specialist?.id || '';
+    document.getElementById('assign-notes').value = appt?.notes || '';
+    document.getElementById('assign-modal').classList.add('open');
+  }
+
+  function closeAssignModal() {
+    document.getElementById('assign-modal').classList.remove('open');
+    confirmingId = null;
+  }
+
+  async function submitConfirm() {
+    const specialistId = document.getElementById('assign-specialist').value;
+    const notes        = document.getElementById('assign-notes').value.trim();
+    const alertEl      = document.getElementById('alert');
+
+    const body = { status: 'CONFIRMED', notes };
+    if (specialistId) body.specialistId = parseInt(specialistId);
+
+    const res = await apiFetch(`/appointments/update/${confirmingId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+
+    closeAssignModal();
+    if (res.ok) {
+      const specialist = staffList.find(s => s.id === parseInt(specialistId));
+      const msg = specialist
+        ? `✅ Appointment confirmed and assigned to ${specialist.name}!`
+        : '✅ Appointment confirmed!';
+      showAlert(alertEl, msg, 'success');
+      loadAppointments(currentPage);
+    } else {
+      showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Confirm failed', 'error');
     }
   }
 
@@ -311,7 +401,7 @@
       case 'PENDING':
         actions = `
           <div class="action-row">
-            <button class="btn btn-confirm" onclick="quickStatus(${a.id},'CONFIRMED')">✅ Confirm Appointment</button>
+            <button class="btn btn-confirm" onclick="closeDetail();openAssignModal(${a.id})">✅ Confirm & Assign Specialist</button>
             <button class="btn btn-cancel"  onclick="quickStatus(${a.id},'CANCELLED')">✕ Cancel</button>
           </div>`;
         break;
@@ -422,6 +512,7 @@
     else showAlert(alertEl, 'Failed to delete', 'error');
   }
 
+  loadStaff();
   loadAppointments();
 </script>
 </body>

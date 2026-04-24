@@ -143,6 +143,11 @@ public class UserController {
         return new ResponseEntity<>(userRepository.existsByEmail(email), HttpStatus.OK);
     }
 
+    @GetMapping(value = "/staff", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<User>> getStaffUsers() {
+        return new ResponseEntity<>(userRepository.findByRoleName("STAFF"), HttpStatus.OK);
+    }
+
     @GetMapping(value = "/province/code/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<User>> getUsersByProvinceCode(@PathVariable String code) {
         return new ResponseEntity<>(userRepository.findByProvinceCode(code), HttpStatus.OK);
