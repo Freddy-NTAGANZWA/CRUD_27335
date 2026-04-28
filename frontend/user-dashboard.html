@@ -22,6 +22,20 @@
       <p>Manage your appointments and explore available services below.</p>
     </div>
 
+    <!-- ── My Location ────────────────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header">
+        <h3>📍 My Location</h3>
+        <a href="user-profile.html" class="btn btn-outline btn-sm">Update Location</a>
+      </div>
+      <div class="card-body">
+        <div id="my-location" class="empty-state">
+          <div class="empty-icon">📍</div>
+          <p>No location set. <a href="user-profile.html" style="color:var(--primary)">Set your location</a> to get better service recommendations.</p>
+        </div>
+      </div>
+    </div>
+
     <div class="stats-grid" style="margin-bottom:28px;">
       <div class="stat-card">
         <div class="stat-icon orange">📋</div>
@@ -69,6 +83,45 @@
 
   const userId = currentUserId();
   document.getElementById('user-name').textContent = currentUserName();
+
+  // show user's location
+  showMyLocation();
+
+  async function showMyLocation() {
+    const user = getSession();
+    const village = user?.village;
+    const box = document.getElementById('my-location');
+    if (!village) return; // already shows empty state
+
+    // build path by walking up parent chain
+    const parts = buildPath(village);
+    box.className = '';
+    box.innerHTML = '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">' +
+      '<span style="font-size:1.5rem;">📍</span>' +
+      '<div>' +
+        '<div style="font-weight:600; margin-bottom:4px;">Your Location</div>' +
+        '<div style="color:var(--text);">' +
+          parts.map(p => '<span style="display:inline-block; padding:2px 6px; border-radius:8px; font-size:0.8rem; font-weight:600; margin-right:4px; margin-bottom:2px; ' +
+            'background:' + levelColor(p.type) + '; color:white;">' + p.type + '</span> ' + p.name).join(' › ') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function buildPath(loc) {
+    const parts = [];
+    let current = loc;
+    while (current) {
+      parts.unshift({ name: current.name, type: current.type });
+      current = current.parent || null;
+    }
+    return parts;
+  }
+
+  function levelColor(type) {
+    const colors = { PROVINCE: '#dbeafe', DISTRICT: '#dcfce7', SECTOR: '#fef3c7', CELL: '#ede9fe', VILLAGE: '#fce7f3' };
+    return colors[type] || '#e5e7eb';
+  }
 
   async function loadDashboard() {
     const [myAppts, services] = await Promise.all([

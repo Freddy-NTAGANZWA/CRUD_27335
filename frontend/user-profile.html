@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Profile — ServiceBook</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .profile-card {
+      background:#fff; border:1px solid var(--border); border-radius:14px;
+      padding:28px; margin-bottom:24px;
+    }
+    .profile-card h3 {
+      font-size:1rem; font-weight:700; margin-bottom:20px;
+      padding-bottom:12px; border-bottom:1px solid var(--border);
+    }
+
+    /* cascade rows */
+    .cascade-wrap { display:flex; flex-direction:column; gap:12px; }
+    .cascade-row  { display:grid; grid-template-columns:120px 1fr; align-items:center; gap:12px; }
+    .cascade-row label { font-size:0.85rem; font-weight:600; color:var(--text-light); }
+    .cascade-row select { width:100%; }
+    .cascade-row select:disabled { opacity:.45; cursor:not-allowed; background:#f8fafc; }
+
+    /* location display badge */
+    .loc-display {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:12px 16px; background:#eff6ff; border:1px solid #bfdbfe;
+      border-radius:10px; margin-bottom:20px; font-size:0.875rem;
+    }
+    .loc-display .loc-icon { font-size:1.2rem; }
+    .loc-display .loc-path { color:var(--text); font-weight:500; }
+    .loc-display .loc-path span { color:var(--primary); font-weight:700; }
+    .loc-display.empty { background:#f8fafc; border-color:var(--border); color:var(--text-light); }
+
+    /* level badges */
+    .lvl { padding:2px 8px; border-radius:12px; font-size:0.72rem; font-weight:700; }
+    .lvl-p { background:#dbeafe; color:#1e40af; }
+    .lvl-d { background:#dcfce7; color:#166534; }
+    .lvl-s { background:#fef3c7; color:#92400e; }
+    .lvl-c { background:#ede9fe; color:#5b21b6; }
+    .lvl-v { background:#fce7f3; color:#9d174d; }
+
+    .save-row { display:flex; align-items:center; gap:12px; margin-top:20px; }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="topbar">
+    <h1>My Profile</h1>
+    <div class="topbar-right" id="topbar-user"></div>
+  </div>
+
+  <div class="content">
+    <div id="alert" class="alert"></div>
+
+    <!-- ── Current location display ──────────────────────────────── -->
+    <div class="profile-card">
+      <h3>📍 My Location</h3>
+
+      <div id="loc-display" class="loc-display empty">
+        <span class="loc-icon">📍</span>
+        <span class="loc-path">No location set yet</span>
+      </div>
+
+      <!-- ── Cascade selector ───────────────────────────────────── -->
+      <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:16px;">
+        Select your location below. Each level unlocks after you choose the one above it.
+      </p>
+
+      <div class="cascade-wrap">
+
+        <div class="cascade-row">
+          <label><span class="lvl lvl-p">PROVINCE</span></label>
+          <select id="sel-province" onchange="onProvince()">
+            <option value="">— Select Province —</option>
+          </select>
+        </div>
+
+        <div class="cascade-row">
+          <label><span class="lvl lvl-d">DISTRICT</span></label>
+          <select id="sel-district" onchange="onDistrict()" disabled>
+            <option value="">— Select Province first —</option>
+          </select>
+        </div>
+
+        <div class="cascade-row">
+          <label><span class="lvl lvl-s">SECTOR</span></label>
+          <select id="sel-sector" onchange="onSector()" disabled>
+            <option value="">— Select District first —</option>
+          </select>
+        </div>
+
+        <div class="cascade-row">
+          <label><span class="lvl lvl-c">CELL</span></label>
+          <select id="sel-cell" onchange="onCell()" disabled>
+            <option value="">— Select Sector first —</option>
+          </select>
+        </div>
+
+        <div class="cascade-row">
+          <label><span class="lvl lvl-v">VILLAGE</span></label>
+          <select id="sel-village" onchange="onVillage()" disabled>
+            <option value="">— Select Cell first —</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="saveLocation()" id="save-btn" disabled>
+          💾 Save My Location
+        </button>
+        <button class="btn btn-secondary" onclick="clearSelection()">✕ Clear</button>
+        <span id="save-hint" style="font-size:0.82rem;color:var(--text-light);">
+          Select down to Village to save
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Basic info ─────────────────────────────────────────────── -->
+    <div class="profile-card">
+      <h3>👤 Account Info</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input class="form-control" id="p-name" placeholder="Your name"/>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input class="form-control" id="p-email" type="email" placeholder="your@email.com"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>New Password <small style="color:var(--text-light);">(leave blank to keep current)</small></label>
+        <input class="form-control" id="p-password" type="password" placeholder="••••••••"/>
+      </div>
+      <button class="btn btn-primary" onclick="saveProfile()">💾 Update Profile</button>
+    </div>
+
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+requireAuth();
+buildSidebar('profile');
+
+const userId = currentUserId();
+let selectedVillageId = null;
+let currentUser = null;
+
+// ── boot ───────────────────────────────────────────────────────────────────
+async function init() {
+  // load user data
+  const res = await apiFetch('/users/' + userId);
+  if (res.ok) {
+    currentUser = res.data;
+    document.getElementById('p-name').value  = currentUser.name  || '';
+    document.getElementById('p-email').value = currentUser.email || '';
+    showCurrentLocation(currentUser.village);
+  }
+
+  // load provinces into first dropdown
+  const pRes = await apiFetch('/locations/provinces');
+  if (pRes.ok) {
+    const sel = document.getElementById('sel-province');
+    sel.innerHTML = '<option value="">— Select Province —</option>' +
+      (pRes.data || []).map(l =>
+        '<option value="' + l.id + '">' + l.name + '</option>'
+      ).join('');
+  }
+
+  // if user already has a village, pre-select the cascade
+  if (currentUser?.village) {
+    await preSelectCascade(currentUser.village.id);
+  }
+}
+
+// ── show current saved location ────────────────────────────────────────────
+function showCurrentLocation(village) {
+  const box = document.getElementById('loc-display');
+  if (!village) {
+    box.className = 'loc-display empty';
+    box.innerHTML = '<span class="loc-icon">📍</span><span class="loc-path">No location set yet</span>';
+    return;
+  }
+  // build path by walking up parent chain
+  const parts = buildPath(village);
+  box.className = 'loc-display';
+  box.innerHTML = '<span class="loc-icon">📍</span>' +
+    '<span class="loc-path">' +
+      parts.map(p => '<span class="lvl lvl-' + p.type.charAt(0).toLowerCase() + '">' + p.type + '</span> ' +
+        '<span>' + p.name + '</span>').join(' &nbsp;›&nbsp; ') +
+    '</span>';
+}
+
+function buildPath(loc) {
+  const parts = [];
+  let current = loc;
+  while (current) {
+    parts.unshift({ name: current.name, type: current.type });
+    current = current.parent || null;
+  }
+  return parts;
+}
+
+// ── pre-select cascade from saved village ─────────────────────────────────
+async function preSelectCascade(villageId) {
+  // fetch the village to get its full parent chain
+  const res = await apiFetch('/locations/' + villageId);
+  if (!res.ok) return;
+  const village = res.data;
+
+  // collect chain: village → cell → sector → district → province
+  const chain = [];
+  let loc = village;
+  while (loc) {
+    chain.unshift(loc);
+    loc = loc.parent || null;
+  }
+  // chain[0]=province, [1]=district, [2]=sector, [3]=cell, [4]=village
+  const levels = ['province','district','sector','cell','village'];
+
+  for (let i = 0; i < chain.length; i++) {
+    const item = chain[i];
+    const selId = 'sel-' + levels[i];
+    const sel   = document.getElementById(selId);
+
+    // load children for this level if not province
+    if (i > 0) {
+      await loadChildren(chain[i-1].id, selId);
+    }
+
+    sel.value = item.id;
+    sel.disabled = false;
+  }
+
+  selectedVillageId = village.id;
+  updateSaveBtn();
+}
+
+// ── cascade helpers ────────────────────────────────────────────────────────
+async function loadChildren(parentId, targetSelId) {
+  const res = await apiFetch('/locations/byParent/' + parentId);
+  const sel = document.getElementById(targetSelId);
+  const level = targetSelId.replace('sel-','');
+  if (res.ok && res.data.length) {
+    sel.innerHTML = '<option value="">— Select ' + cap(level) + ' —</option>' +
+      res.data.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join('');
+    sel.disabled = false;
+  } else {
+    sel.innerHTML = '<option value="">No ' + level + 's found</option>';
+    sel.disabled = true;
+  }
+}
+
+function resetFrom(level) {
+  const order = ['province','district','sector','cell','village'];
+  const idx   = order.indexOf(level);
+  order.slice(idx).forEach(l => {
+    const sel = document.getElementById('sel-' + l);
+    const ph  = l === 'province' ? 'Select Province' : 'Select ' + cap(order[idx-1]) + ' first';
+    sel.innerHTML = '<option value="">— ' + ph + ' —</option>';
+    sel.disabled  = (l !== 'province');
+  });
+  selectedVillageId = null;
+  updateSaveBtn();
+}
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+async function onProvince() {
+  const id = document.getElementById('sel-province').value;
+  resetFrom('district');
+  if (id) await loadChildren(id, 'sel-district');
+}
+
+async function onDistrict() {
+  const id = document.getElementById('sel-district').value;
+  resetFrom('sector');
+  if (id) await loadChildren(id, 'sel-sector');
+}
+
+async function onSector() {
+  const id = document.getElementById('sel-sector').value;
+  resetFrom('cell');
+  if (id) await loadChildren(id, 'sel-cell');
+}
+
+async function onCell() {
+  const id = document.getElementById('sel-cell').value;
+  const sel = document.getElementById('sel-village');
+  sel.innerHTML = '<option value="">— Select Village —</option>';
+  sel.disabled  = true;
+  selectedVillageId = null;
+  updateSaveBtn();
+  if (id) await loadChildren(id, 'sel-village');
+}
+
+function onVillage() {
+  const sel = document.getElementById('sel-village');
+  selectedVillageId = sel.value ? parseInt(sel.value) : null;
+  updateSaveBtn();
+}
+
+function updateSaveBtn() {
+  const btn  = document.getElementById('save-btn');
+  const hint = document.getElementById('save-hint');
+  if (selectedVillageId) {
+    btn.disabled  = false;
+    hint.textContent = '✅ Village selected — ready to save';
+    hint.style.color = 'var(--success)';
+  } else {
+    btn.disabled  = true;
+    hint.textContent = 'Select down to Village to save';
+    hint.style.color = 'var(--text-light)';
+  }
+}
+
+function clearSelection() {
+  resetFrom('province');
+  document.getElementById('sel-province').value = '';
+}
+
+// ── save location ──────────────────────────────────────────────────────────
+async function saveLocation() {
+  if (!selectedVillageId) return;
+  const alertEl = document.getElementById('alert');
+
+  const res = await apiFetch('/users/update/' + userId, {
+    method: 'PUT',
+    body: JSON.stringify({ village: { id: selectedVillageId } })
+  });
+
+  if (res.ok) {
+    currentUser = res.data;
+    showCurrentLocation(res.data.village);
+    // update session
+    const session = JSON.parse(localStorage.getItem('sb_user') || '{}');
+    session.village = res.data.village;
+    localStorage.setItem('sb_user', JSON.stringify(session));
+    showAlert(alertEl, '✅ Location saved successfully!', 'success');
+  } else {
+    showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Failed to save location', 'error');
+  }
+}
+
+// ── save profile ───────────────────────────────────────────────────────────
+async function saveProfile() {
+  const name     = document.getElementById('p-name').value.trim();
+  const email    = document.getElementById('p-email').value.trim();
+  const password = document.getElementById('p-password').value;
+  const alertEl  = document.getElementById('alert');
+
+  if (!name || !email) return showAlert(alertEl, 'Name and email are required', 'error');
+
+  const body = { name, email };
+  if (password) body.password = password;
+
+  const res = await apiFetch('/users/update/' + userId, {
+    method: 'PUT', body: JSON.stringify(body)
+  });
+
+  if (res.ok) {
+    // update session name
+    const session = JSON.parse(localStorage.getItem('sb_user') || '{}');
+    session.name  = res.data.name;
+    session.email = res.data.email;
+    localStorage.setItem('sb_user', JSON.stringify(session));
+    document.getElementById('p-password').value = '';
+    showAlert(alertEl, '✅ Profile updated!', 'success');
+  } else {
+    showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Update failed', 'error');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

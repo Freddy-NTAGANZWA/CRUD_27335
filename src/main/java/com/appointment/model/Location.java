@@ -30,7 +30,7 @@ public class Location {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "parent_id")
-    @JsonIgnoreProperties({"children", "parent"})
+    @JsonIgnoreProperties({"children"})
     private Location parent;
     
     // Allow setting parent by ID in JSON

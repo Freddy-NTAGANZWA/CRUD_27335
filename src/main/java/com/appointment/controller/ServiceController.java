@@ -72,6 +72,11 @@ public class ServiceController {
         }
     }
 
+    @GetMapping(value = "/byCategory/{categoryId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<Service>> getServicesByCategory(@PathVariable Long categoryId) {
+        return new ResponseEntity<>(serviceRepository.findByCategoriesId(categoryId), HttpStatus.OK);
+    }
+
     @GetMapping(value = "/exists/name/{name}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Boolean> checkNameExists(@PathVariable String name) {
         return new ResponseEntity<>(serviceRepository.existsByName(name), HttpStatus.OK);

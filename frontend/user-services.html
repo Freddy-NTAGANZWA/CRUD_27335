@@ -5,6 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Browse Services — ServiceBook</title>
   <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* ── Filter panel ─────────────────────────────────────────────────── */
+    .filter-panel {
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px 24px; margin-bottom: 24px;
+    }
+    .filter-panel h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+    .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .filter-grid select { width: 100%; }
+
+    /* ── Category tabs ────────────────────────────────────────────────── */
+    .cat-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .cat-tab {
+      padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+      background: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 500;
+      color: var(--text-light); transition: all 0.2s;
+    }
+    .cat-tab:hover  { border-color: var(--primary); color: var(--primary); }
+    .cat-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    /* ── Location breadcrumb ──────────────────────────────────────────── */
+    .loc-breadcrumb {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      font-size: 0.8rem; color: var(--text-light); margin-top: 10px;
+    }
+    .loc-breadcrumb .loc-chip {
+      background: #dbeafe; color: #1e40af; padding: 2px 10px;
+      border-radius: 20px; font-weight: 600;
+    }
+
+    /* ── Result header ────────────────────────────────────────────────── */
+    .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .result-header h3 { font-size: 1rem; font-weight: 700; }
+    .result-header span { font-size: 0.85rem; color: var(--text-light); }
+
+    /* ── No results ───────────────────────────────────────────────────── */
+    .no-results {
+      text-align: center; padding: 48px 24px; background: #fff;
+      border: 1px solid var(--border); border-radius: 12px;
+    }
+    .no-results .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .no-results p { color: var(--text-light); font-size: 0.9rem; }
+  </style>
 </head>
 <body>
 
@@ -15,32 +61,89 @@
     <h1>Browse Services</h1>
     <div class="topbar-right" id="topbar-user"></div>
   </div>
+
   <div class="content">
     <div id="alert" class="alert"></div>
 
+    <!-- ── Step 1: Location filter ──────────────────────────────────── -->
+    <div class="filter-panel">
+      <h3>📍 Filter by Location</h3>
+      <div class="filter-grid">
+        <div class="form-group" style="margin:0;">
+          <label>Province</label>
+          <select class="form-control" id="sel-province" onchange="onProvinceChange()">
+            <option value="">— All Provinces —</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>District</label>
+          <select class="form-control" id="sel-district" onchange="onDistrictChange()" disabled>
+            <option value="">— Select Province first —</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Sector</label>
+          <select class="form-control" id="sel-sector" onchange="onSectorChange()" disabled>
+            <option value="">— Select District first —</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Cell</label>
+          <select class="form-control" id="sel-cell" onchange="onCellChange()" disabled>
+            <option value="">— Select Sector first —</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Village</label>
+          <select class="form-control" id="sel-village" onchange="onVillageChange()" disabled>
+            <option value="">— Select Cell first —</option>
+          </select>
+        </div>
+      </div>
+      <div class="loc-breadcrumb" id="loc-breadcrumb"></div>
+    </div>
+
+    <!-- ── Step 2: Category tabs ────────────────────────────────────── -->
+    <div class="cat-tabs" id="cat-tabs">
+      <div class="cat-tab active" onclick="selectCategory(null, this)">🏷️ All Categories</div>
+    </div>
+
+    <!-- ── Step 3: Search + results ─────────────────────────────────── -->
     <div class="search-bar">
-      <input type="text" id="search" placeholder="Search services…" oninput="filterServices()"/>
+      <input type="text" id="search" placeholder="Search services by name…" oninput="applyFilters()"/>
+    </div>
+
+    <div class="result-header">
+      <h3 id="result-title">All Services</h3>
+      <span id="result-count"></span>
     </div>
 
     <div id="services-container"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 </main>
 
-<!-- Quick Book Modal -->
+<!-- ── Book Modal ──────────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal">
-  <div class="modal" style="max-width:440px;">
+  <div class="modal" style="max-width:460px;">
     <div class="modal-header">
-      <h3>Book: <span id="modal-service-name"></span></h3>
+      <h3>📅 Book: <span id="modal-service-name"></span></h3>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body">
+      <div class="form-group">
+        <label>Your Location</label>
+        <input class="form-control" id="book-location" readonly
+               style="background:#f8fafc;color:var(--text-light);"
+               placeholder="Select location above first"/>
+      </div>
       <div class="form-group">
         <label>Appointment Date & Time *</label>
         <input class="form-control" id="f-time" type="datetime-local"/>
       </div>
       <div class="form-group">
         <label>Notes</label>
-        <textarea class="form-control" id="f-notes" rows="3" placeholder="Any special requests…"></textarea>
+        <textarea class="form-control" id="f-notes" rows="3"
+                  placeholder="Any special requests or details…"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -57,45 +160,213 @@
   buildSidebar('browse-services');
 
   const userId = currentUserId();
-  let allServices = [], selectedServiceId = null;
 
-  async function loadServices() {
-    const res = await apiFetch('/services?size=100');
-    if (!res.ok) { document.getElementById('services-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load services</p></div>'; return; }
-    allServices = res.data.content || [];
-    renderServices(allServices);
+  // ── State ──────────────────────────────────────────────────────────────────
+  let allServices      = [];
+  let allCategories    = [];
+  let selectedCatId    = null;
+  let selectedServiceId = null;
+  let selectedVillageId = null;
+  let locationLabel    = '';
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  async function init() {
+    await Promise.all([loadProvinces(), loadCategories(), loadAllServices()]);
+    applyFilters();
+  }
+
+  // ── Location cascade ───────────────────────────────────────────────────────
+  async function loadProvinces() {
+    const res = await apiFetch('/locations/provinces');
+    if (!res.ok) return;
+    const sel = document.getElementById('sel-province');
+    sel.innerHTML = '<option value="">— All Provinces —</option>' +
+      (res.data || []).map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+  }
+
+  async function loadChildren(parentId, selectId, placeholder) {
+    const res = await apiFetch(`/locations/byParent/${parentId}`);
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = `<option value="">${placeholder}</option>` +
+      (res.ok ? (res.data || []).map(l => `<option value="${l.id}">${l.name}</option>`).join('') : '');
+    sel.disabled = false;
+  }
+
+  function resetFrom(level) {
+    const levels = ['district','sector','cell','village'];
+    const idx = levels.indexOf(level);
+    levels.slice(idx).forEach(l => {
+      const s = document.getElementById(`sel-${l}`);
+      s.innerHTML = `<option value="">— Select ${levels[idx-1] || 'Province'} first —</option>`;
+      s.disabled = true;
+    });
+    if (level === 'district') { selectedVillageId = null; locationLabel = ''; }
+    updateBreadcrumb();
+    applyFilters();
+  }
+
+  async function onProvinceChange() {
+    const id = document.getElementById('sel-province').value;
+    resetFrom('district');
+    if (id) await loadChildren(id, 'sel-district', '— Select District —');
+    updateBreadcrumb(); applyFilters();
+  }
+
+  async function onDistrictChange() {
+    const id = document.getElementById('sel-district').value;
+    resetFrom('sector');
+    if (id) await loadChildren(id, 'sel-sector', '— Select Sector —');
+    updateBreadcrumb(); applyFilters();
+  }
+
+  async function onSectorChange() {
+    const id = document.getElementById('sel-sector').value;
+    resetFrom('cell');
+    if (id) await loadChildren(id, 'sel-cell', '— Select Cell —');
+    updateBreadcrumb(); applyFilters();
+  }
+
+  async function onCellChange() {
+    const id = document.getElementById('sel-cell').value;
+    resetFrom('village');
+    if (id) await loadChildren(id, 'sel-village', '— Select Village —');
+    updateBreadcrumb(); applyFilters();
+  }
+
+  function onVillageChange() {
+    const sel = document.getElementById('sel-village');
+    selectedVillageId = sel.value ? parseInt(sel.value) : null;
+    locationLabel = sel.options[sel.selectedIndex]?.text || '';
+    updateBreadcrumb(); applyFilters();
+  }
+
+  function updateBreadcrumb() {
+    const parts = ['province','district','sector','cell','village']
+      .map(l => {
+        const s = document.getElementById(`sel-${l}`);
+        return s.value ? s.options[s.selectedIndex].text : null;
+      }).filter(Boolean);
+
+    const bc = document.getElementById('loc-breadcrumb');
+    bc.innerHTML = parts.length
+      ? '📍 ' + parts.map(p => `<span class="loc-chip">${p}</span>`).join(' › ')
+      : '';
+  }
+
+  // ── Categories ─────────────────────────────────────────────────────────────
+  async function loadCategories() {
+    const res = await apiFetch('/categories');
+    if (!res.ok) return;
+    allCategories = res.data || [];
+    const tabs = document.getElementById('cat-tabs');
+    tabs.innerHTML = `<div class="cat-tab active" onclick="selectCategory(null, this)">🏷️ All Categories</div>` +
+      allCategories.map(c =>
+        `<div class="cat-tab" onclick="selectCategory(${c.id}, this)">${c.name}</div>`
+      ).join('');
+  }
+
+  function selectCategory(id, el) {
+    selectedCatId = id;
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    applyFilters();
+  }
+
+  // ── Services ───────────────────────────────────────────────────────────────
+  async function loadAllServices() {
+    const res = await apiFetch('/services?size=200');
+    allServices = res.ok ? (res.data.content || []) : [];
+  }
+
+  function applyFilters() {
+    const q = document.getElementById('search').value.toLowerCase();
+
+    let filtered = allServices;
+
+    // Category filter
+    if (selectedCatId) {
+      filtered = filtered.filter(s =>
+        s.categories?.some(c => c.id === selectedCatId)
+      );
+    }
+
+    // Text search
+    if (q) {
+      filtered = filtered.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Update result title
+    const catName = selectedCatId
+      ? allCategories.find(c => c.id === selectedCatId)?.name
+      : null;
+    const locName = locationLabel || null;
+
+    let title = catName ? `${catName} Services` : 'All Services';
+    if (locName) title += ` near ${locName}`;
+    document.getElementById('result-title').textContent = title;
+    document.getElementById('result-count').textContent =
+      `${filtered.length} service${filtered.length !== 1 ? 's' : ''} found`;
+
+    renderServices(filtered);
   }
 
   function renderServices(services) {
+    const container = document.getElementById('services-container');
     if (!services.length) {
-      document.getElementById('services-container').innerHTML = '<div class="empty-state"><div class="empty-icon">🛠️</div><p>No services available</p></div>';
+      container.innerHTML = `
+        <div class="no-results">
+          <div class="icon">🔍</div>
+          <p>No services found for your selection.<br/>Try a different category or clear the filters.</p>
+        </div>`;
       return;
     }
+
     const cards = services.map(s => `
       <div class="service-card">
         <h4>${s.name}</h4>
         <p>${s.description || 'No description available.'}</p>
-        ${s.price != null ? `<div class="service-price">RWF ${Number(s.price).toLocaleString()}</div>` : '<div class="service-price" style="color:var(--text-light);font-size:0.9rem;">Price on request</div>'}
-        ${s.categories?.length ? `<div style="margin-bottom:12px;">${s.categories.map(c=>`<span class="status status-confirmed">${c.name}</span>`).join(' ')}</div>` : ''}
-        <button class="btn btn-primary" style="width:100%;" onclick="openBookModal(${s.id},'${s.name.replace(/'/g,"\\'")}')">📅 Book Now</button>
+        ${s.price != null
+          ? `<div class="service-price">RWF ${Number(s.price).toLocaleString()}</div>`
+          : `<div class="service-price" style="color:var(--text-light);font-size:0.9rem;">Price on request</div>`}
+        ${s.categories?.length
+          ? `<div style="margin-bottom:12px;">${s.categories.map(c =>
+              `<span class="status status-confirmed">${c.name}</span>`).join(' ')}</div>`
+          : ''}
+        <button class="btn btn-primary" style="width:100%;"
+          onclick="openBookModal(${s.id}, '${s.name.replace(/'/g,"\\'")}')">
+          📅 Book Now
+        </button>
       </div>`).join('');
-    document.getElementById('services-container').innerHTML = `<div class="service-grid">${cards}</div>`;
+
+    container.innerHTML = `<div class="service-grid">${cards}</div>`;
   }
 
-  function filterServices() {
-    const q = document.getElementById('search').value.toLowerCase();
-    renderServices(allServices.filter(s => s.name.toLowerCase().includes(q) || (s.description||'').toLowerCase().includes(q)));
-  }
-
+  // ── Book modal ─────────────────────────────────────────────────────────────
   function openBookModal(serviceId, serviceName) {
     selectedServiceId = serviceId;
     document.getElementById('modal-service-name').textContent = serviceName;
-    document.getElementById('f-time').value = '';
+    document.getElementById('f-time').value  = '';
     document.getElementById('f-notes').value = '';
+
+    // Show selected location in modal
+    const parts = ['province','district','sector','cell','village']
+      .map(l => {
+        const s = document.getElementById(`sel-${l}`);
+        return s.value ? s.options[s.selectedIndex].text : null;
+      }).filter(Boolean);
+    document.getElementById('book-location').value =
+      parts.length ? parts.join(' › ') : 'No location selected';
+
     document.getElementById('modal').classList.add('open');
   }
 
-  function closeModal() { document.getElementById('modal').classList.remove('open'); selectedServiceId = null; }
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    selectedServiceId = null;
+  }
 
   async function confirmBook() {
     const time    = document.getElementById('f-time').value;
@@ -105,23 +376,35 @@
     if (!time) return showAlert(alertEl, 'Please select a date and time', 'error');
 
     const body = {
-      userId: userId,
-      serviceId: selectedServiceId,
-      appointmentTime: new Date(time).toISOString().slice(0,19),
-      status: 'PENDING',
-      notes
+      userId:          userId,
+      serviceId:       selectedServiceId,
+      appointmentTime: new Date(time).toISOString().slice(0, 19),
+      status:          'PENDING',
+      notes:           notes || (locationLabel ? `Location: ${locationLabel}` : '')
     };
 
-    const res = await apiFetch('/appointments/save', { method: 'POST', body: JSON.stringify(body) });
+    // If user selected a village, update their profile location
+    if (selectedVillageId) {
+      await apiFetch(`/users/update/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ village: { id: selectedVillageId } })
+      });
+    }
+
+    const res = await apiFetch('/appointments/save', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+
     if (res.ok) {
-      showAlert(alertEl, 'Appointment booked! Check My Appointments to track it.', 'success');
+      showAlert(alertEl, '✅ Appointment booked! Check My Appointments to track it.', 'success');
       closeModal();
     } else {
       showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Booking failed', 'error');
     }
   }
 
-  loadServices();
+  init();
 </script>
 </body>
 </html>
