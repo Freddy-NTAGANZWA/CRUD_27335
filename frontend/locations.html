@@ -6,46 +6,52 @@
   <title>Locations — ServiceBook Admin</title>
   <link rel="stylesheet" href="css/style.css"/>
   <style>
-    /* ── Type badges ──────────────────────────────────────────────────── */
-    .loc-type { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space:nowrap; }
+    .loc-type { padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:600; white-space:nowrap; }
     .loc-PROVINCE { background:#dbeafe; color:#1e40af; }
     .loc-DISTRICT { background:#dcfce7; color:#166534; }
     .loc-SECTOR   { background:#fef3c7; color:#92400e; }
     .loc-CELL     { background:#ede9fe; color:#5b21b6; }
     .loc-VILLAGE  { background:#fce7f3; color:#9d174d; }
 
-    /* ── Breadcrumb ───────────────────────────────────────────────────── */
-    .breadcrumb { display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-      font-size:0.875rem; color:var(--text-light); margin-bottom:16px; }
-    .breadcrumb .bc-link { cursor:pointer; color:var(--primary); font-weight:500; }
-    .breadcrumb .bc-link:hover { text-decoration:underline; }
-    .breadcrumb .bc-sep { color:#cbd5e1; }
-    .breadcrumb .bc-current { font-weight:700; color:var(--text); }
+    .breadcrumb { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:0.875rem; color:var(--text-light); margin-bottom:16px; }
+    .bc-link    { cursor:pointer; color:var(--primary); font-weight:500; }
+    .bc-link:hover { text-decoration:underline; }
+    .bc-sep     { color:#cbd5e1; }
+    .bc-current { font-weight:700; color:var(--text); }
 
-    /* ── Level indicator strip ────────────────────────────────────────── */
-    .level-strip { display:flex; gap:0; margin-bottom:20px; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
-    .level-step { flex:1; padding:8px 4px; text-align:center; font-size:0.75rem; font-weight:600;
-      background:#f8fafc; color:var(--text-light); border-right:1px solid var(--border); }
+    .level-strip { display:flex; margin-bottom:20px; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+    .level-step  { flex:1; padding:8px 4px; text-align:center; font-size:0.75rem; font-weight:600; background:#f8fafc; color:var(--text-light); border-right:1px solid var(--border); }
     .level-step:last-child { border-right:none; }
-    .level-step.done  { background:#dbeafe; color:#1e40af; }
-    .level-step.active{ background:var(--primary); color:#fff; }
+    .level-step.done   { background:#dbeafe; color:#1e40af; }
+    .level-step.active { background:var(--primary); color:#fff; }
 
-    /* ── Table action buttons ─────────────────────────────────────────── */
     .row-actions { display:flex; gap:4px; flex-wrap:wrap; }
-    .btn-sub  { background:#7c3aed; color:#fff; }
+    .btn-sub     { background:#7c3aed; color:#fff; }
     .btn-sub:hover { background:#6d28d9; }
+    .drill-link  { color:var(--primary); font-weight:600; text-decoration:none; }
+    .drill-link:hover { text-decoration:underline; }
 
-    /* ── Stats row ────────────────────────────────────────────────────── */
     .loc-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px; }
-    .loc-stat  { background:#fff; border:1px solid var(--border); border-radius:10px;
-      padding:14px 16px; text-align:center; }
-    .loc-stat .num  { font-size:1.4rem; font-weight:800; }
-    .loc-stat .lbl  { font-size:0.75rem; color:var(--text-light); margin-top:2px; }
+    .loc-stat  { background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px 16px; text-align:center; }
+    .loc-stat .num { font-size:1.4rem; font-weight:800; }
+    .loc-stat .lbl { font-size:0.75rem; color:var(--text-light); margin-top:2px; }
     .loc-stat.s-province .num { color:#1e40af; }
     .loc-stat.s-district .num { color:#166534; }
     .loc-stat.s-sector   .num { color:#92400e; }
     .loc-stat.s-cell     .num { color:#5b21b6; }
     .loc-stat.s-village  .num { color:#9d174d; }
+
+    /* cascade section inside modal */
+    .cascade-box { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+    .cascade-box .box-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-light); margin-bottom:12px; }
+    .cascade-step { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .cascade-step:last-child { margin-bottom:0; }
+    .cascade-step .step-label { width:80px; flex-shrink:0; }
+    .cascade-step select { flex:1; }
+    .cascade-step select:disabled { opacity:.5; cursor:not-allowed; }
+
+    .new-box { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:16px; }
+    .new-box .box-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#1e40af; margin-bottom:12px; }
   </style>
 </head>
 <body>
@@ -56,7 +62,7 @@
   <div class="topbar">
     <h1>Locations</h1>
     <div class="topbar-right" id="topbar-user">
-      <button class="btn btn-primary" onclick="openAddModal(null,'PROVINCE')">+ Add Province</button>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Add Location</button>
     </div>
   </div>
 
@@ -72,8 +78,8 @@
       <div class="loc-stat s-village"> <div class="num" id="cnt-village">—</div> <div class="lbl">Villages</div></div>
     </div>
 
-    <!-- Level progress strip -->
-    <div class="level-strip" id="level-strip">
+    <!-- Level strip -->
+    <div class="level-strip">
       <div class="level-step active" id="step-0">🗺️ Province</div>
       <div class="level-step"        id="step-1">🏙️ District</div>
       <div class="level-step"        id="step-2">🏘️ Sector</div>
@@ -84,13 +90,13 @@
     <!-- Breadcrumb -->
     <div class="breadcrumb" id="breadcrumb"></div>
 
-    <!-- Search + reset -->
+    <!-- Search -->
     <div class="search-bar">
       <input type="text" id="search" placeholder="Search in current level…" oninput="filterTable()"/>
       <button class="btn btn-outline" onclick="loadProvinces()">🗺️ Back to Provinces</button>
     </div>
 
-    <!-- Table card -->
+    <!-- Table -->
     <div class="card">
       <div class="card-header">
         <h3 id="table-title">All Provinces</h3>
@@ -103,42 +109,113 @@
   </div>
 </main>
 
-<!-- ── Add / Edit Modal ────────────────────────────────────────────────────── -->
+<!-- ══════════════════════════════════════════════════════════════════════════
+     ADD MODAL  —  cascade Province → District → Sector → Cell → Village
+     ══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;">
     <div class="modal-header">
-      <h3 id="modal-title">Add Location</h3>
+      <h3>Add Location</h3>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body">
-      <div id="parent-info" style="display:none;margin-bottom:16px;padding:10px 14px;
-        background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:0.875rem;">
-        <strong>Parent:</strong> <span id="parent-info-text"></span>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Name *</label>
-          <input class="form-control" id="f-name" placeholder="e.g. Gasabo"/>
-        </div>
-        <div class="form-group">
-          <label>Code</label>
-          <input class="form-control" id="f-code" placeholder="e.g. KGL-GSB"/>
-        </div>
-      </div>
+
+      <!-- Step 1 – choose type to add -->
       <div class="form-group">
-        <label>Type *</label>
-        <select class="form-control" id="f-type">
-          <option value="PROVINCE">PROVINCE</option>
-          <option value="DISTRICT">DISTRICT</option>
-          <option value="SECTOR">SECTOR</option>
-          <option value="CELL">CELL</option>
-          <option value="VILLAGE">VILLAGE</option>
+        <label>What do you want to add?</label>
+        <select class="form-control" id="f-type" onchange="onTypeChange()">
+          <option value="PROVINCE">🗺️  Province</option>
+          <option value="DISTRICT">🏙️  District  (needs a Province)</option>
+          <option value="SECTOR">🏘️  Sector    (needs a District)</option>
+          <option value="CELL">🏠  Cell      (needs a Sector)</option>
+          <option value="VILLAGE">🌿  Village   (needs a Cell)</option>
         </select>
       </div>
+
+      <!-- Step 2 – cascade parent selectors (shown/hidden by type) -->
+      <div class="cascade-box" id="cascade-box" style="display:none;">
+        <div class="box-title">📍 Select parent location</div>
+
+        <!-- Province row -->
+        <div class="cascade-step" id="cs-province" style="display:none;">
+          <span class="step-label"><span class="loc-type loc-PROVINCE">PROVINCE</span></span>
+          <select class="form-control" id="c-province" onchange="onCProvince()">
+            <option value="">— Select Province —</option>
+          </select>
+        </div>
+
+        <!-- District row -->
+        <div class="cascade-step" id="cs-district" style="display:none;">
+          <span class="step-label"><span class="loc-type loc-DISTRICT">DISTRICT</span></span>
+          <select class="form-control" id="c-district" onchange="onCDistrict()" disabled>
+            <option value="">— Select Province first —</option>
+          </select>
+        </div>
+
+        <!-- Sector row -->
+        <div class="cascade-step" id="cs-sector" style="display:none;">
+          <span class="step-label"><span class="loc-type loc-SECTOR">SECTOR</span></span>
+          <select class="form-control" id="c-sector" onchange="onCSector()" disabled>
+            <option value="">— Select District first —</option>
+          </select>
+        </div>
+
+        <!-- Cell row -->
+        <div class="cascade-step" id="cs-cell" style="display:none;">
+          <span class="step-label"><span class="loc-type loc-CELL">CELL</span></span>
+          <select class="form-control" id="c-cell" onchange="onCCell()" disabled>
+            <option value="">— Select Sector first —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Step 3 – new location details -->
+      <div class="new-box">
+        <div class="box-title">✏️ New location details</div>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Name *</label>
+            <input class="form-control" id="f-name" placeholder="e.g. Gasabo"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Code <small style="color:var(--text-light);">(optional)</small></label>
+            <input class="form-control" id="f-code" placeholder="e.g. KGL-GSB"/>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveLocation()">Save</button>
+      <button class="btn btn-primary"   onclick="saveLocation()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDIT MODAL
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 id="edit-title">Edit Location</h3>
+      <button class="modal-close" onclick="closeEditModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Name *</label>
+          <input class="form-control" id="e-name"/>
+        </div>
+        <div class="form-group">
+          <label>Code</label>
+          <input class="form-control" id="e-code"/>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary"   onclick="saveEdit()">💾 Save Changes</button>
     </div>
   </div>
 </div>
@@ -146,305 +223,366 @@
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  requireAuth(true);
-  buildSidebar('locations');
+requireAuth(true);
+buildSidebar('locations');
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  let allLocations   = [];
-  let breadcrumbStack = [];          // [{id, name, type}, …]
-  let editingId      = null;
-  let addingParentId = null;
-  let addingType     = 'PROVINCE';
+// ── state ──────────────────────────────────────────────────────────────────
+let allLocations    = [];
+let breadcrumbStack = [];
+let editingId       = null;
 
-  const CHILD_TYPE = {
-    PROVINCE: 'DISTRICT', DISTRICT: 'SECTOR',
-    SECTOR: 'CELL', CELL: 'VILLAGE', VILLAGE: null
-  };
-  const LEVEL_INDEX = { PROVINCE:0, DISTRICT:1, SECTOR:2, CELL:3, VILLAGE:4 };
+const CHILD_TYPE  = { PROVINCE:'DISTRICT', DISTRICT:'SECTOR', SECTOR:'CELL', CELL:'VILLAGE', VILLAGE:null };
+const LEVEL_INDEX = { PROVINCE:0, DISTRICT:1, SECTOR:2, CELL:3, VILLAGE:4 };
 
-  // ── Boot ───────────────────────────────────────────────────────────────────
-  async function init() {
-    await loadStats();
-    await loadProvinces();
+// ── boot ───────────────────────────────────────────────────────────────────
+async function init() {
+  await loadStats();
+  await loadProvinces();
+}
+
+// ── stats ──────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const res = await apiFetch('/locations');
+  if (!res.ok) return;
+  const all = res.data || [];
+  ['PROVINCE','DISTRICT','SECTOR','CELL','VILLAGE'].forEach(t =>
+    document.getElementById('cnt-' + t.toLowerCase()).textContent =
+      all.filter(l => l.type === t).length
+  );
+}
+
+// ── provinces ──────────────────────────────────────────────────────────────
+async function loadProvinces() {
+  breadcrumbStack = [];
+  updateBreadcrumb();
+  updateLevelStrip(-1);
+  document.getElementById('table-title').textContent = 'All Provinces';
+  const res = await apiFetch('/locations/provinces');
+  if (!res.ok) { showError(); return; }
+  allLocations = res.data || [];
+  document.getElementById('total-badge').textContent = allLocations.length;
+  renderTable(allLocations, 'PROVINCE');
+}
+
+// ── drill ──────────────────────────────────────────────────────────────────
+async function drillInto(parentId, parentName, parentType) {
+  breadcrumbStack.push({ id: parentId, name: parentName, type: parentType });
+  updateBreadcrumb();
+  updateLevelStrip(LEVEL_INDEX[parentType]);
+  const childType = CHILD_TYPE[parentType];
+  document.getElementById('table-title').textContent =
+    parentName + '  ›  ' + (childType ? childType + 'S' : 'Sub-locations');
+  const res = await apiFetch('/locations/byParent/' + parentId);
+  if (!res.ok) { showError(); return; }
+  allLocations = res.data || [];
+  document.getElementById('total-badge').textContent = allLocations.length;
+  renderTable(allLocations, childType || 'VILLAGE');
+}
+
+// ── breadcrumb ─────────────────────────────────────────────────────────────
+function updateBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  if (!breadcrumbStack.length) { bc.innerHTML = ''; return; }
+  let html = '<span class="bc-link" onclick="loadProvinces()">🗺️ Provinces</span>';
+  breadcrumbStack.forEach((item, i) => {
+    html += '<span class="bc-sep">›</span>';
+    if (i < breadcrumbStack.length - 1)
+      html += '<span class="bc-link" onclick="navTo(' + i + ')">' + item.name + '</span>';
+    else
+      html += '<span class="bc-current">' + item.name + '</span>';
+  });
+  bc.innerHTML = html;
+}
+
+async function navTo(index) {
+  const item = breadcrumbStack[index];
+  breadcrumbStack = breadcrumbStack.slice(0, index);
+  await drillInto(item.id, item.name, item.type);
+}
+
+// ── level strip ────────────────────────────────────────────────────────────
+function updateLevelStrip(activeIndex) {
+  for (let i = 0; i <= 4; i++) {
+    const el = document.getElementById('step-' + i);
+    el.className = 'level-step' +
+      (i < activeIndex + 1 ? ' done'   : '') +
+      (i === activeIndex + 1 ? ' active' : '');
   }
+}
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  async function loadStats() {
-    const res = await apiFetch('/locations');
-    if (!res.ok) return;
-    const all = res.data || [];
-    ['PROVINCE','DISTRICT','SECTOR','CELL','VILLAGE'].forEach(t => {
-      const el = document.getElementById(`cnt-${t.toLowerCase()}`);
-      if (el) el.textContent = all.filter(l => l.type === t).length;
-    });
-  }
-
-  // ── Load provinces (root level) ────────────────────────────────────────────
-  async function loadProvinces() {
-    breadcrumbStack = [];
-    updateBreadcrumb();
-    updateLevelStrip(-1);
-    document.getElementById('table-title').textContent = 'All Provinces';
-    const res = await apiFetch('/locations/provinces');
-    if (!res.ok) { showError(); return; }
-    allLocations = res.data || [];
-    document.getElementById('total-badge').textContent = allLocations.length;
-    renderTable(allLocations, 'PROVINCE');
-  }
-
-  // ── Drill into children ────────────────────────────────────────────────────
-  async function drillInto(parentId, parentName, parentType) {
-    breadcrumbStack.push({ id: parentId, name: parentName, type: parentType });
-    updateBreadcrumb();
-    updateLevelStrip(LEVEL_INDEX[parentType]);
-
-    const childType = CHILD_TYPE[parentType];
-    document.getElementById('table-title').textContent =
-      `${parentName}  ›  ${childType ? childType + 'S' : 'Sub-locations'}`;
-
-    const res = await apiFetch(`/locations/byParent/${parentId}`);
-    if (!res.ok) { showError(); return; }
-    allLocations = res.data || [];
-    document.getElementById('total-badge').textContent = allLocations.length;
-    renderTable(allLocations, childType || 'VILLAGE');
-  }
-
-  // ── Breadcrumb ─────────────────────────────────────────────────────────────
-  function updateBreadcrumb() {
-    const bc = document.getElementById('breadcrumb');
-    if (!breadcrumbStack.length) { bc.innerHTML = ''; return; }
-
-    let html = `<span class="bc-link" onclick="loadProvinces()">🗺️ Provinces</span>`;
-    breadcrumbStack.forEach((item, i) => {
-      html += `<span class="bc-sep">›</span>`;
-      if (i < breadcrumbStack.length - 1) {
-        html += `<span class="bc-link" onclick="navTo(${i})">${item.name}</span>`;
-      } else {
-        html += `<span class="bc-current">${item.name}</span>`;
-      }
-    });
-    bc.innerHTML = html;
-  }
-
-  async function navTo(index) {
-    const item = breadcrumbStack[index];
-    breadcrumbStack = breadcrumbStack.slice(0, index);
-    await drillInto(item.id, item.name, item.type);
-  }
-
-  // ── Level strip ────────────────────────────────────────────────────────────
-  function updateLevelStrip(activeIndex) {
-    for (let i = 0; i <= 4; i++) {
-      const el = document.getElementById(`step-${i}`);
-      el.className = 'level-step' +
-        (i < activeIndex + 1 ? ' done' : '') +
-        (i === activeIndex + 1 ? ' active' : '');
-    }
-  }
-
-  // ── Render table ───────────────────────────────────────────────────────────
-  function renderTable(locs, currentType) {
-    if (!locs.length) {
-      document.getElementById('table-container').innerHTML =
-        `<div class="empty-state">
-          <div class="empty-icon">📍</div>
-          <p>No ${currentType?.toLowerCase() || 'location'}s found here.</p>
-          ${addingParentId !== null || currentType === 'PROVINCE'
-            ? `<button class="btn btn-primary" style="margin-top:12px;"
-                onclick="openAddModal(${breadcrumbStack.at(-1)?.id ?? null},'${currentType}')">
-                + Add ${currentType}
-              </button>`
-            : ''}
-        </div>`;
-      return;
-    }
-
-    const canDrill = currentType !== 'VILLAGE';
-    const childType = CHILD_TYPE[currentType];
-
-    const rows = locs.map(l => `
-      <tr>
-        <td><strong>#${l.id}</strong></td>
-        <td>
-          ${canDrill
-            ? `<a href="#" class="drill-link"
-                onclick="drillInto(${l.id},'${l.name.replace(/'/g,"\\'")}','${l.type}');return false;">
-                ${l.name}
-               </a>`
-            : `<strong>${l.name}</strong>`}
-        </td>
-        <td>${l.code || '—'}</td>
-        <td><span class="loc-type loc-${l.type}">${l.type}</span></td>
-        <td>${l.parent?.name || '—'}</td>
-        <td>
-          <div class="row-actions">
-            ${canDrill
-              ? `<button class="btn btn-sub btn-sm"
-                  onclick="drillInto(${l.id},'${l.name.replace(/'/g,"\\'")}','${l.type}')"
-                  title="View ${childType}s">
-                  📂 ${childType}s
-                </button>
-                <button class="btn btn-primary btn-sm"
-                  onclick="openAddModal(${l.id},'${childType}')"
-                  title="Add ${childType} under ${l.name}">
-                  + ${childType}
-                </button>`
-              : ''}
-            <button class="btn btn-warning btn-sm"
-              onclick="openEditModal(${l.id},'${l.name.replace(/'/g,"\\'")}','${l.code||''}','${l.type}')"
-              title="Edit">✏️</button>
-            <button class="btn btn-danger btn-sm"
-              onclick="deleteLocation(${l.id},'${l.name.replace(/'/g,"\\'")}','${l.type}')"
-              title="Delete">🗑️</button>
-          </div>
-        </td>
-      </tr>`).join('');
-
-    document.getElementById('table-container').innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th><th>Name</th><th>Code</th><th>Type</th><th>Parent</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  }
-
-  // ── Filter ─────────────────────────────────────────────────────────────────
-  function filterTable() {
-    const q = document.getElementById('search').value.toLowerCase();
-    const filtered = allLocations.filter(l =>
-      l.name.toLowerCase().includes(q) || (l.code || '').toLowerCase().includes(q)
-    );
-    const currentType = allLocations[0]?.type || 'PROVINCE';
-    renderTable(filtered, currentType);
-  }
-
-  // ── Add modal ──────────────────────────────────────────────────────────────
-  function openAddModal(parentId, type) {
-    editingId      = null;
-    addingParentId = parentId;
-    addingType     = type;
-
-    document.getElementById('modal-title').textContent = `Add ${type}`;
-    document.getElementById('f-name').value = '';
-    document.getElementById('f-code').value = '';
-    document.getElementById('f-type').value = type;
-
-    const parentInfo = document.getElementById('parent-info');
-    if (parentId) {
-      const parent = allLocations.find(l => l.id === parentId)
-        || breadcrumbStack.find(b => b.id === parentId);
-      document.getElementById('parent-info-text').textContent =
-        parent ? `${parent.name} (${parent.type || ''})` : `ID ${parentId}`;
-      parentInfo.style.display = 'block';
-    } else {
-      parentInfo.style.display = 'none';
-    }
-
-    document.getElementById('modal').classList.add('open');
-  }
-
-  // ── Edit modal ─────────────────────────────────────────────────────────────
-  function openEditModal(id, name, code, type) {
-    editingId      = id;
-    addingParentId = null;
-
-    document.getElementById('modal-title').textContent = `Edit ${type}`;
-    document.getElementById('f-name').value = name;
-    document.getElementById('f-code').value = code;
-    document.getElementById('f-type').value = type;
-    document.getElementById('parent-info').style.display = 'none';
-
-    document.getElementById('modal').classList.add('open');
-  }
-
-  function closeModal() {
-    document.getElementById('modal').classList.remove('open');
-    editingId = null; addingParentId = null;
-  }
-
-  // ── Save (create or update) ────────────────────────────────────────────────
-  async function saveLocation() {
-    const name    = document.getElementById('f-name').value.trim();
-    const code    = document.getElementById('f-code').value.trim();
-    const type    = document.getElementById('f-type').value;
-    const alertEl = document.getElementById('alert');
-
-    if (!name) return showAlert(alertEl, 'Name is required', 'error');
-
-    const body = { name, type };
-    if (code) body.code = code;
-
-    let res;
-    if (editingId) {
-      // UPDATE
-      res = await apiFetch(`/locations/update/${editingId}`, {
-        method: 'PUT', body: JSON.stringify(body)
-      });
-    } else if (addingParentId) {
-      // CREATE child
-      body.parentId = addingParentId;
-      res = await apiFetch('/locations/saveWithParent', {
-        method: 'POST', body: JSON.stringify(body)
-      });
-    } else {
-      // CREATE province
-      res = await apiFetch('/locations/save', {
-        method: 'POST', body: JSON.stringify(body)
-      });
-    }
-
-    if (res.ok) {
-      showAlert(alertEl, editingId ? `${type} updated!` : `${type} added!`, 'success');
-      closeModal();
-      await loadStats();
-      // Refresh current view
-      if (breadcrumbStack.length) {
-        const parent = breadcrumbStack.at(-1);
-        await drillInto(parent.id, parent.name, parent.type);
-      } else {
-        await loadProvinces();
-      }
-    } else {
-      showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Save failed', 'error');
-    }
-  }
-
-  // ── Delete ─────────────────────────────────────────────────────────────────
-  async function deleteLocation(id, name, type) {
-    if (!confirm(`Delete ${type} "${name}"?\n\nNote: you cannot delete a location that has sub-locations.`)) return;
-
-    const res = await apiFetch(`/locations/delete/${id}`, { method: 'DELETE' });
-    const alertEl = document.getElementById('alert');
-
-    if (res.ok) {
-      showAlert(alertEl, `${type} "${name}" deleted.`, 'success');
-      await loadStats();
-      if (breadcrumbStack.length) {
-        const parent = breadcrumbStack.at(-1);
-        await drillInto(parent.id, parent.name, parent.type);
-      } else {
-        await loadProvinces();
-      }
-    } else {
-      showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Delete failed', 'error');
-    }
-  }
-
-  function showError() {
+// ── render table ───────────────────────────────────────────────────────────
+function renderTable(locs, currentType) {
+  if (!locs.length) {
     document.getElementById('table-container').innerHTML =
-      '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load locations</p></div>';
+      '<div class="empty-state"><div class="empty-icon">📍</div>' +
+      '<p>No ' + (currentType || 'location').toLowerCase() + 's here yet.</p>' +
+      '<button class="btn btn-primary" style="margin-top:12px;" onclick="openAddModal()">+ Add Location</button></div>';
+    return;
+  }
+  const canDrill = currentType !== 'VILLAGE';
+  const childType = CHILD_TYPE[currentType];
+  const rows = locs.map(l => {
+    const safeName = l.name.replace(/'/g, "\\'");
+    return '<tr>' +
+      '<td><strong>#' + l.id + '</strong></td>' +
+      '<td>' + (canDrill
+        ? '<a class="drill-link" href="#" onclick="drillInto(' + l.id + ',\'' + safeName + '\',\'' + l.type + '\');return false;">' + l.name + '</a>'
+        : '<strong>' + l.name + '</strong>') + '</td>' +
+      '<td>' + (l.code || '—') + '</td>' +
+      '<td><span class="loc-type loc-' + l.type + '">' + l.type + '</span></td>' +
+      '<td>' + (l.parent ? l.parent.name : '—') + '</td>' +
+      '<td><div class="row-actions">' +
+        (canDrill
+          ? '<button class="btn btn-sub btn-sm" onclick="drillInto(' + l.id + ',\'' + safeName + '\',\'' + l.type + '\')" title="View ' + childType + 's">📂 ' + childType + 's</button>'
+          : '') +
+        '<button class="btn btn-warning btn-sm" onclick="openEditModal(' + l.id + ',\'' + safeName + '\',\'' + (l.code || '') + '\',\'' + l.type + '\')">✏️ Edit</button>' +
+        '<button class="btn btn-danger btn-sm"  onclick="deleteLocation(' + l.id + ',\'' + safeName + '\',\'' + l.type + '\')">🗑️ Delete</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('table-container').innerHTML =
+    '<table><thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Type</th><th>Parent</th><th>Actions</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>';
+}
+
+function filterTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = allLocations.filter(l =>
+    l.name.toLowerCase().includes(q) || (l.code || '').toLowerCase().includes(q));
+  renderTable(filtered, allLocations[0]?.type || 'PROVINCE');
+}
+
+function showError() {
+  document.getElementById('table-container').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load locations</p></div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ADD MODAL — cascade logic
+// ══════════════════════════════════════════════════════════════════════════
+
+async function openAddModal() {
+  // reset fields
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-code').value = '';
+  document.getElementById('f-type').value = 'PROVINCE';
+
+  // reset cascade selects
+  ['province','district','sector','cell'].forEach(l => {
+    const sel = document.getElementById('c-' + l);
+    sel.innerHTML = '<option value="">— Select ' + l.charAt(0).toUpperCase() + l.slice(1) + ' —</option>';
+    sel.disabled = true;
+  });
+
+  // load provinces into first dropdown
+  const res = await apiFetch('/locations/provinces');
+  if (res.ok) {
+    const sel = document.getElementById('c-province');
+    sel.innerHTML = '<option value="">— Select Province —</option>' +
+      (res.data || []).map(l => '<option value="' + l.id + '">' + l.name + '</option>').join('');
   }
 
-  // ── Add drill-link style ───────────────────────────────────────────────────
-  const style = document.createElement('style');
-  style.textContent = `.drill-link{color:var(--primary);font-weight:600;text-decoration:none;}
-    .drill-link:hover{text-decoration:underline;}`;
-  document.head.appendChild(style);
+  onTypeChange(); // show/hide correct rows
+  document.getElementById('modal').classList.add('open');
+}
 
-  init();
+// Show/hide cascade rows based on selected type
+function onTypeChange() {
+  const type = document.getElementById('f-type').value;
+  const needs = { PROVINCE:[], DISTRICT:['province'], SECTOR:['province','district'],
+                  CELL:['province','district','sector'], VILLAGE:['province','district','sector','cell'] };
+  const required = needs[type] || [];
+
+  // show cascade box only if parent needed
+  document.getElementById('cascade-box').style.display = required.length ? 'block' : 'none';
+
+  // show/hide each row
+  ['province','district','sector','cell'].forEach(l => {
+    document.getElementById('cs-' + l).style.display = required.includes(l) ? 'flex' : 'none';
+  });
+
+  // reset selects below province when type changes
+  ['district','sector','cell'].forEach(l => {
+    const sel = document.getElementById('c-' + l);
+    sel.innerHTML = '<option value="">— Select ' + l.charAt(0).toUpperCase() + l.slice(1) + ' first —</option>';
+    sel.disabled = true;
+  });
+}
+
+// Province selected → load districts
+async function onCProvince() {
+  const id = document.getElementById('c-province').value;
+  // reset downstream
+  ['district','sector','cell'].forEach(l => {
+    const sel = document.getElementById('c-' + l);
+    sel.innerHTML = '<option value="">— Select ' + l.charAt(0).toUpperCase() + l.slice(1) + ' —</option>';
+    sel.disabled = true;
+  });
+  if (!id) return;
+  const type = document.getElementById('f-type').value;
+  if (type === 'DISTRICT') return; // district is what we're adding, no need to load more
+  await loadCascadeChildren(id, 'c-district');
+}
+
+// District selected → load sectors
+async function onCDistrict() {
+  const id = document.getElementById('c-district').value;
+  ['sector','cell'].forEach(l => {
+    const sel = document.getElementById('c-' + l);
+    sel.innerHTML = '<option value="">— Select ' + l.charAt(0).toUpperCase() + l.slice(1) + ' —</option>';
+    sel.disabled = true;
+  });
+  if (!id) return;
+  const type = document.getElementById('f-type').value;
+  if (type === 'SECTOR') return;
+  await loadCascadeChildren(id, 'c-sector');
+}
+
+// Sector selected → load cells
+async function onCSector() {
+  const id = document.getElementById('c-sector').value;
+  const sel = document.getElementById('c-cell');
+  sel.innerHTML = '<option value="">— Select Cell —</option>';
+  sel.disabled = true;
+  if (!id) return;
+  const type = document.getElementById('f-type').value;
+  if (type === 'CELL') return;
+  await loadCascadeChildren(id, 'c-cell');
+}
+
+// Cell selected — nothing more to load (village is what we're adding)
+function onCCell() {}
+
+async function loadCascadeChildren(parentId, selectId) {
+  const res = await apiFetch('/locations/byParent/' + parentId);
+  const sel = document.getElementById(selectId);
+  const level = selectId.replace('c-', '');
+  if (res.ok && res.data.length) {
+    sel.innerHTML = '<option value="">— Select ' + level.charAt(0).toUpperCase() + level.slice(1) + ' —</option>' +
+      res.data.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join('');
+    sel.disabled = false;
+  } else {
+    sel.innerHTML = '<option value="">No ' + level + 's found</option>';
+    sel.disabled = true;
+  }
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+// ── save new location ──────────────────────────────────────────────────────
+async function saveLocation() {
+  const type    = document.getElementById('f-type').value;
+  const name    = document.getElementById('f-name').value.trim();
+  const code    = document.getElementById('f-code').value.trim();
+  const alertEl = document.getElementById('alert');
+
+  if (!name) return showAlert(alertEl, 'Name is required', 'error');
+
+  // determine parentId from cascade
+  const parentMap = {
+    PROVINCE: null,
+    DISTRICT: document.getElementById('c-province').value,
+    SECTOR:   document.getElementById('c-district').value,
+    CELL:     document.getElementById('c-sector').value,
+    VILLAGE:  document.getElementById('c-cell').value
+  };
+  const parentId = parentMap[type];
+
+  if (type !== 'PROVINCE' && !parentId)
+    return showAlert(alertEl, 'Please select the full parent hierarchy', 'error');
+
+  const body = { name, type };
+  if (code) body.code = code;
+
+  let res;
+  if (parentId) {
+    body.parentId = parseInt(parentId);
+    res = await apiFetch('/locations/saveWithParent', { method:'POST', body:JSON.stringify(body) });
+  } else {
+    res = await apiFetch('/locations/save', { method:'POST', body:JSON.stringify(body) });
+  }
+
+  if (res.ok) {
+    showAlert(alertEl, type + ' "' + name + '" added successfully!', 'success');
+    closeModal();
+    await loadStats();
+    // refresh current view
+    if (breadcrumbStack.length) {
+      const p = breadcrumbStack.at(-1);
+      await drillInto(p.id, p.name, p.type);
+    } else {
+      await loadProvinces();
+    }
+  } else {
+    showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Save failed', 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  EDIT MODAL
+// ══════════════════════════════════════════════════════════════════════════
+
+function openEditModal(id, name, code, type) {
+  editingId = id;
+  document.getElementById('edit-title').textContent = 'Edit ' + type;
+  document.getElementById('e-name').value = name;
+  document.getElementById('e-code').value = code;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = null;
+}
+
+async function saveEdit() {
+  const name    = document.getElementById('e-name').value.trim();
+  const code    = document.getElementById('e-code').value.trim();
+  const alertEl = document.getElementById('alert');
+  if (!name) return showAlert(alertEl, 'Name is required', 'error');
+
+  const res = await apiFetch('/locations/update/' + editingId, {
+    method: 'PUT', body: JSON.stringify({ name, code })
+  });
+
+  if (res.ok) {
+    showAlert(alertEl, 'Location updated!', 'success');
+    closeEditModal();
+    await loadStats();
+    if (breadcrumbStack.length) {
+      const p = breadcrumbStack.at(-1);
+      await drillInto(p.id, p.name, p.type);
+    } else {
+      await loadProvinces();
+    }
+  } else {
+    showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Update failed', 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  DELETE
+// ══════════════════════════════════════════════════════════════════════════
+
+async function deleteLocation(id, name, type) {
+  if (!confirm('Delete ' + type + ' "' + name + '"?\n\nCannot delete if it has sub-locations.')) return;
+  const res = await apiFetch('/locations/delete/' + id, { method:'DELETE' });
+  const alertEl = document.getElementById('alert');
+  if (res.ok) {
+    showAlert(alertEl, type + ' "' + name + '" deleted.', 'success');
+    await loadStats();
+    if (breadcrumbStack.length) {
+      const p = breadcrumbStack.at(-1);
+      await drillInto(p.id, p.name, p.type);
+    } else {
+      await loadProvinces();
+    }
+  } else {
+    showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Delete failed', 'error');
+  }
+}
+
+init();
 </script>
 </body>
 </html>
