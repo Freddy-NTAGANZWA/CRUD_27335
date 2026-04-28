@@ -5,6 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Appointments — ServiceBook</title>
   <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* cascade location box */
+    .loc-cascade { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:14px; }
+    .loc-cascade .lc-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-light); margin-bottom:10px; }
+    .loc-cascade .lc-row   { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .loc-cascade .lc-row:last-child { margin-bottom:0; }
+    .loc-cascade .lc-label { width:72px; flex-shrink:0; font-size:0.78rem; font-weight:600; color:var(--text-light); }
+    .loc-cascade select    { flex:1; }
+    .loc-cascade select:disabled { opacity:.45; cursor:not-allowed; }
+
+    /* location breadcrumb inside modal */
+    .loc-trail { font-size:0.78rem; color:var(--text-light); margin-top:8px; min-height:18px; }
+    .loc-trail span { color:var(--primary); font-weight:600; }
+
+    /* service card in modal */
+    .svc-option { padding:8px 10px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; cursor:pointer; transition:all .15s; }
+    .svc-option:hover, .svc-option.selected { border-color:var(--primary); background:#eff6ff; }
+    .svc-option .svc-name  { font-weight:600; font-size:0.875rem; }
+    .svc-option .svc-meta  { font-size:0.78rem; color:var(--text-light); margin-top:2px; }
+    .svc-option .svc-price { font-weight:700; color:var(--primary); }
+    #svc-list { max-height:200px; overflow-y:auto; }
+  </style>
 </head>
 <body>
 
@@ -17,9 +39,11 @@
       <button class="btn btn-primary" onclick="openModal()">+ Book Appointment</button>
     </div>
   </div>
+
   <div class="content">
     <div id="alert" class="alert"></div>
 
+    <!-- filter bar -->
     <div class="search-bar">
       <input type="text" id="search" placeholder="Search by service…" oninput="filterTable()"/>
       <select class="form-control" id="filter-status" onchange="filterTable()" style="width:160px;">
@@ -32,7 +56,10 @@
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>My Appointments</h3><span id="total-badge" class="badge">0</span></div>
+      <div class="card-header">
+        <h3>My Appointments</h3>
+        <span id="total-badge" class="badge">0</span>
+      </div>
       <div class="card-body">
         <div id="table-container"><div class="loading"><div class="spinner"></div></div></div>
       </div>
@@ -40,44 +67,105 @@
   </div>
 </main>
 
-<!-- Book Appointment Modal -->
+<!-- ══════════════════════════════════════════════════════════════
+     BOOK APPOINTMENT MODAL
+     ══════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;">
     <div class="modal-header">
-      <h3 id="modal-title">Book Appointment</h3>
+      <h3>📅 Book Appointment</h3>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body">
+
+      <!-- ── STEP 1: Location cascade ─────────────────────────── -->
+      <div class="loc-cascade">
+        <div class="lc-title">📍 Step 1 — Select your location</div>
+
+        <div class="lc-row">
+          <span class="lc-label">Province</span>
+          <select id="f-province" class="form-control" onchange="onProvince()">
+            <option value="">— Select Province —</option>
+          </select>
+        </div>
+
+        <div class="lc-row">
+          <span class="lc-label">District</span>
+          <select id="f-district" class="form-control" onchange="onDistrict()" disabled>
+            <option value="">— Select Province first —</option>
+          </select>
+        </div>
+
+        <div class="lc-row">
+          <span class="lc-label">Sector</span>
+          <select id="f-sector" class="form-control" onchange="onSector()" disabled>
+            <option value="">— Select District first —</option>
+          </select>
+        </div>
+
+        <div class="lc-row">
+          <span class="lc-label">Cell</span>
+          <select id="f-cell" class="form-control" onchange="onCell()" disabled>
+            <option value="">— Select Sector first —</option>
+          </select>
+        </div>
+
+        <div class="lc-row">
+          <span class="lc-label">Village</span>
+          <select id="f-village" class="form-control" onchange="onVillage()" disabled>
+            <option value="">— Select Cell first —</option>
+          </select>
+        </div>
+
+        <div class="loc-trail" id="loc-trail">No location selected yet</div>
+      </div>
+
+      <!-- ── STEP 2: Category filter ──────────────────────────── -->
       <div class="form-group">
-        <label>Select Service *</label>
-        <select class="form-control" id="f-service">
-          <option value="">— Choose a service —</option>
+        <label>🏷️ Step 2 — Filter by category <small style="color:var(--text-light);">(optional)</small></label>
+        <select class="form-control" id="f-category" onchange="filterServices()">
+          <option value="">— All Categories —</option>
         </select>
       </div>
+
+      <!-- ── STEP 3: Pick service ─────────────────────────────── -->
       <div class="form-group">
-        <label>Appointment Date & Time *</label>
+        <label>🛠️ Step 3 — Select service *</label>
+        <input class="form-control" id="svc-search" placeholder="Search services…"
+               oninput="filterServices()" style="margin-bottom:8px;"/>
+        <div id="svc-list"><div style="color:var(--text-light);font-size:0.85rem;padding:8px;">Loading services…</div></div>
+        <input type="hidden" id="f-service"/>
+      </div>
+
+      <!-- ── STEP 4: Date/time + notes ────────────────────────── -->
+      <div class="form-group">
+        <label>📆 Step 4 — Date & Time *</label>
         <input class="form-control" id="f-time" type="datetime-local"/>
       </div>
       <div class="form-group">
-        <label>Notes</label>
-        <textarea class="form-control" id="f-notes" rows="3" placeholder="Any special requests…"></textarea>
+        <label>Notes <small style="color:var(--text-light);">(optional)</small></label>
+        <textarea class="form-control" id="f-notes" rows="2" placeholder="Any special requests…"></textarea>
       </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAppointment()">Book</button>
+      <button class="btn btn-primary"   onclick="saveAppointment()">✅ Confirm Booking</button>
     </div>
   </div>
 </div>
 
-<!-- Cancel confirm modal -->
+<!-- Cancel modal -->
 <div class="modal-overlay" id="cancel-modal">
   <div class="modal" style="max-width:380px;">
-    <div class="modal-header"><h3>Cancel Appointment</h3><button class="modal-close" onclick="closeCancelModal()">×</button></div>
+    <div class="modal-header">
+      <h3>Cancel Appointment</h3>
+      <button class="modal-close" onclick="closeCancelModal()">×</button>
+    </div>
     <div class="modal-body"><p>Are you sure you want to cancel this appointment?</p></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeCancelModal()">No, Keep It</button>
-      <button class="btn btn-danger" onclick="confirmCancel()">Yes, Cancel</button>
+      <button class="btn btn-danger"    onclick="confirmCancel()">Yes, Cancel</button>
     </div>
   </div>
 </div>
@@ -85,112 +173,285 @@
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  requireAuth();
-  buildSidebar('my-appointments');
+requireAuth();
+buildSidebar('my-appointments');
 
-  const userId = currentUserId();
-  let allAppointments = [], cancelId = null;
+const userId = currentUserId();
+let allAppointments = [], cancelId = null;
+let allServices = [], allCategories = [];
+let selectedVillageId = null, locationLabel = '';
 
-  // Auto-open book modal if ?book=1
-  if (new URLSearchParams(location.search).get('book') === '1') {
-    window.addEventListener('load', () => openModal());
+// auto-open if ?book=1
+if (new URLSearchParams(location.search).get('book') === '1')
+  window.addEventListener('load', openModal);
+
+// ── appointments ───────────────────────────────────────────────────────────
+async function loadAppointments() {
+  const res = await apiFetch('/appointments/user/' + userId);
+  if (!res.ok) {
+    document.getElementById('table-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load</p></div>';
+    return;
+  }
+  allAppointments = res.data || [];
+  document.getElementById('total-badge').textContent = allAppointments.length;
+  renderTable(allAppointments);
+}
+
+function renderTable(list) {
+  if (!list.length) {
+    document.getElementById('table-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">📋</div>' +
+      '<p>No appointments yet. <a href="#" onclick="openModal()" style="color:var(--primary)">Book your first one!</a></p></div>';
+    return;
+  }
+  const rows = list.map(a => {
+    const canCancel = a.status === 'PENDING' || a.status === 'CONFIRMED';
+    return '<tr>' +
+      '<td>' + a.id + '</td>' +
+      '<td>' + (a.service?.name || '—') + '</td>' +
+      '<td>' + (a.specialist?.name || '—') + '</td>' +
+      '<td>' + formatDateTime(a.appointmentTime) + '</td>' +
+      '<td>' + statusBadge(a.status) + '</td>' +
+      '<td>' + (a.notes || '—') + '</td>' +
+      '<td>' + (canCancel
+        ? '<button class="btn btn-danger btn-sm" onclick="openCancelModal(' + a.id + ')">✕ Cancel</button>'
+        : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('table-container').innerHTML =
+    '<table><thead><tr><th>ID</th><th>Service</th><th>Specialist</th>' +
+    '<th>Date & Time</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>';
+}
+
+function filterTable() {
+  const q      = document.getElementById('search').value.toLowerCase();
+  const status = document.getElementById('filter-status').value;
+  renderTable(allAppointments.filter(a =>
+    (a.service?.name || '').toLowerCase().includes(q) &&
+    (!status || a.status === status)
+  ));
+}
+
+// ── open modal ─────────────────────────────────────────────────────────────
+async function openModal() {
+  // reset location
+  selectedVillageId = null;
+  locationLabel     = '';
+  resetCascadeFrom('province');
+  document.getElementById('loc-trail').textContent = 'No location selected yet';
+
+  // reset service selection
+  document.getElementById('f-service').value = '';
+  document.getElementById('f-time').value    = '';
+  document.getElementById('f-notes').value   = '';
+  document.getElementById('svc-search').value = '';
+
+  // load provinces
+  const pRes = await apiFetch('/locations/provinces');
+  const pSel = document.getElementById('f-province');
+  pSel.innerHTML = '<option value="">— Select Province —</option>';
+  if (pRes.ok) {
+    (pRes.data || []).forEach(l =>
+      pSel.innerHTML += '<option value="' + l.id + '">' + l.name + '</option>'
+    );
   }
 
-  async function loadAppointments() {
-    const res = await apiFetch(`/appointments/user/${userId}`);
-    if (!res.ok) { document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load appointments</p></div>'; return; }
-    allAppointments = res.data || [];
-    document.getElementById('total-badge').textContent = allAppointments.length;
-    renderTable(allAppointments);
+  // load categories
+  const cRes = await apiFetch('/categories');
+  allCategories = cRes.ok ? (cRes.data || []) : [];
+  const cSel = document.getElementById('f-category');
+  cSel.innerHTML = '<option value="">— All Categories —</option>' +
+    allCategories.map(c => '<option value="' + c.id + '">' + c.name + '</option>').join('');
+
+  // load all services
+  const sRes = await apiFetch('/services?size=200');
+  allServices = sRes.ok ? (sRes.data.content || []) : [];
+  renderServiceList(allServices);
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+// ── cascade helpers ────────────────────────────────────────────────────────
+function resetCascadeFrom(level) {
+  const order = ['province','district','sector','cell','village'];
+  const idx   = order.indexOf(level);
+  order.slice(idx).forEach(l => {
+    const sel = document.getElementById('f-' + l);
+    const labels = { province:'Province', district:'Province first',
+                     sector:'District first', cell:'Sector first', village:'Cell first' };
+    sel.innerHTML = '<option value="">— Select ' + labels[l] + ' —</option>';
+    sel.disabled  = (l !== 'province');
+  });
+}
+
+async function loadChildren(parentId, targetId, placeholder) {
+  const res = await apiFetch('/locations/byParent/' + parentId);
+  const sel = document.getElementById(targetId);
+  if (res.ok && res.data.length) {
+    sel.innerHTML = '<option value="">— ' + placeholder + ' —</option>' +
+      res.data.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join('');
+    sel.disabled = false;
+  } else {
+    sel.innerHTML = '<option value="">No ' + placeholder.toLowerCase() + ' found</option>';
+    sel.disabled = true;
   }
+}
 
-  function renderTable(appointments) {
-    if (!appointments.length) {
-      document.getElementById('table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>No appointments yet. <a href="#" onclick="openModal()" style="color:var(--primary)">Book your first one!</a></p></div>';
-      return;
-    }
-    const rows = appointments.map(a => {
-      const canCancel = a.status === 'PENDING' || a.status === 'CONFIRMED';
-      return `
-        <tr>
-          <td>${a.id}</td>
-          <td>${a.service?.name || '—'}</td>
-          <td>${a.specialist?.name || '—'}</td>
-          <td>${formatDateTime(a.appointmentTime)}</td>
-          <td>${statusBadge(a.status)}</td>
-          <td>${a.notes || '—'}</td>
-          <td>${canCancel ? `<button class="btn btn-danger btn-sm" onclick="openCancelModal(${a.id})">✕ Cancel</button>` : '—'}</td>
-        </tr>`;
-    }).join('');
-    document.getElementById('table-container').innerHTML = `
-      <table>
-        <thead><tr><th>ID</th><th>Service</th><th>Specialist</th><th>Date & Time</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+function updateTrail() {
+  const parts = ['province','district','sector','cell','village'].map(l => {
+    const sel = document.getElementById('f-' + l);
+    return sel.value ? sel.options[sel.selectedIndex].text : null;
+  }).filter(Boolean);
+  const trail = document.getElementById('loc-trail');
+  if (parts.length) {
+    trail.innerHTML = '📍 ' + parts.map(p => '<span>' + p + '</span>').join(' › ');
+  } else {
+    trail.textContent = 'No location selected yet';
   }
+}
 
-  function filterTable() {
-    const q = document.getElementById('search').value.toLowerCase();
-    const status = document.getElementById('filter-status').value;
-    renderTable(allAppointments.filter(a => {
-      const matchText = (a.service?.name||'').toLowerCase().includes(q);
-      return matchText && (!status || a.status === status);
-    }));
+// ── cascade event handlers ─────────────────────────────────────────────────
+async function onProvince() {
+  const id = document.getElementById('f-province').value;
+  resetCascadeFrom('district');
+  selectedVillageId = null; locationLabel = '';
+  updateTrail();
+  if (id) await loadChildren(id, 'f-district', 'Select District');
+}
+
+async function onDistrict() {
+  const id = document.getElementById('f-district').value;
+  resetCascadeFrom('sector');
+  selectedVillageId = null; locationLabel = '';
+  updateTrail();
+  if (id) await loadChildren(id, 'f-sector', 'Select Sector');
+}
+
+async function onSector() {
+  const id = document.getElementById('f-sector').value;
+  resetCascadeFrom('cell');
+  selectedVillageId = null; locationLabel = '';
+  updateTrail();
+  if (id) await loadChildren(id, 'f-cell', 'Select Cell');
+}
+
+async function onCell() {
+  const id = document.getElementById('f-cell').value;
+  const sel = document.getElementById('f-village');
+  sel.innerHTML = '<option value="">— Select Village —</option>';
+  sel.disabled  = true;
+  selectedVillageId = null; locationLabel = '';
+  updateTrail();
+  if (id) await loadChildren(id, 'f-village', 'Select Village');
+}
+
+function onVillage() {
+  const sel = document.getElementById('f-village');
+  selectedVillageId = sel.value ? parseInt(sel.value) : null;
+  locationLabel     = sel.value ? sel.options[sel.selectedIndex].text : '';
+  updateTrail();
+}
+
+// ── service list ───────────────────────────────────────────────────────────
+function renderServiceList(services) {
+  const container = document.getElementById('svc-list');
+  if (!services.length) {
+    container.innerHTML = '<div style="color:var(--text-light);font-size:0.85rem;padding:8px;">No services found</div>';
+    return;
   }
+  container.innerHTML = services.map(s =>
+    '<div class="svc-option" id="svc-' + s.id + '" onclick="selectService(' + s.id + ')">' +
+      '<div class="svc-name">' + s.name + '</div>' +
+      '<div class="svc-meta">' +
+        (s.categories?.length ? s.categories.map(c => c.name).join(', ') : 'No category') +
+        (s.price != null ? ' &nbsp;·&nbsp; <span class="svc-price">RWF ' + Number(s.price).toLocaleString() + '</span>' : '') +
+      '</div>' +
+    '</div>'
+  ).join('');
+}
 
-  async function openModal() {
-    // Load services into dropdown
-    const res = await apiFetch('/services?size=100');
-    const select = document.getElementById('f-service');
-    select.innerHTML = '<option value="">— Choose a service —</option>';
-    if (res.ok) {
-      (res.data.content || []).forEach(s => {
-        select.innerHTML += `<option value="${s.id}">${s.name}${s.price ? ' — RWF ' + Number(s.price).toLocaleString() : ''}</option>`;
-      });
-    }
-    document.getElementById('f-time').value = '';
-    document.getElementById('f-notes').value = '';
-    document.getElementById('modal').classList.add('open');
+function filterServices() {
+  const q   = document.getElementById('svc-search').value.toLowerCase();
+  const cat = document.getElementById('f-category').value;
+  const filtered = allServices.filter(s =>
+    (!cat || s.categories?.some(c => c.id === parseInt(cat))) &&
+    (!q   || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q))
+  );
+  renderServiceList(filtered);
+  // keep selection highlighted
+  const sel = document.getElementById('f-service').value;
+  if (sel) {
+    const el = document.getElementById('svc-' + sel);
+    if (el) el.classList.add('selected');
   }
+}
 
-  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function selectService(id) {
+  document.querySelectorAll('.svc-option').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('svc-' + id);
+  if (el) el.classList.add('selected');
+  document.getElementById('f-service').value = id;
+}
 
-  async function saveAppointment() {
-    const serviceId = document.getElementById('f-service').value;
-    const time      = document.getElementById('f-time').value;
-    const notes     = document.getElementById('f-notes').value.trim();
-    const alertEl   = document.getElementById('alert');
+// ── save appointment ───────────────────────────────────────────────────────
+async function saveAppointment() {
+  const serviceId = document.getElementById('f-service').value;
+  const time      = document.getElementById('f-time').value;
+  const notes     = document.getElementById('f-notes').value.trim();
+  const alertEl   = document.getElementById('alert');
 
-    if (!serviceId || !time) return showAlert(alertEl, 'Please select a service and date/time', 'error');
+  if (!serviceId) return showAlert(alertEl, 'Please select a service', 'error');
+  if (!time)      return showAlert(alertEl, 'Please select a date and time', 'error');
 
-    const body = {
-      userId: userId,
-      serviceId: parseInt(serviceId),
-      appointmentTime: new Date(time).toISOString().slice(0,19),
-      status: 'PENDING',
-      notes
-    };
-
-    const res = await apiFetch('/appointments/save', { method: 'POST', body: JSON.stringify(body) });
-    if (res.ok) { showAlert(alertEl, 'Appointment booked successfully!', 'success'); closeModal(); loadAppointments(); }
-    else showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Booking failed', 'error');
-  }
-
-  function openCancelModal(id) { cancelId = id; document.getElementById('cancel-modal').classList.add('open'); }
-  function closeCancelModal() { cancelId = null; document.getElementById('cancel-modal').classList.remove('open'); }
-
-  async function confirmCancel() {
-    const res = await apiFetch(`/appointments/update/${cancelId}`, {
+  // save village to user profile if selected
+  if (selectedVillageId) {
+    await apiFetch('/users/update/' + userId, {
       method: 'PUT',
-      body: JSON.stringify({ status: 'CANCELLED' })
+      body: JSON.stringify({ village: { id: selectedVillageId } })
     });
-    const alertEl = document.getElementById('alert');
-    closeCancelModal();
-    if (res.ok) { showAlert(alertEl, 'Appointment cancelled.', 'success'); loadAppointments(); }
-    else showAlert(alertEl, 'Failed to cancel appointment', 'error');
   }
 
-  loadAppointments();
+  const noteText = notes || (locationLabel ? 'Location: ' + locationLabel : '');
+
+  const res = await apiFetch('/appointments/save', {
+    method: 'POST',
+    body: JSON.stringify({
+      userId:          userId,
+      serviceId:       parseInt(serviceId),
+      appointmentTime: new Date(time).toISOString().slice(0, 19),
+      status:          'PENDING',
+      notes:           noteText
+    })
+  });
+
+  if (res.ok) {
+    showAlert(alertEl, '✅ Appointment booked successfully!', 'success');
+    closeModal();
+    loadAppointments();
+  } else {
+    showAlert(alertEl, typeof res.data === 'string' ? res.data : 'Booking failed', 'error');
+  }
+}
+
+// ── cancel ─────────────────────────────────────────────────────────────────
+function openCancelModal(id)  { cancelId = id; document.getElementById('cancel-modal').classList.add('open'); }
+function closeCancelModal()   { cancelId = null; document.getElementById('cancel-modal').classList.remove('open'); }
+
+async function confirmCancel() {
+  const res = await apiFetch('/appointments/update/' + cancelId, {
+    method: 'PUT', body: JSON.stringify({ status: 'CANCELLED' })
+  });
+  const alertEl = document.getElementById('alert');
+  closeCancelModal();
+  if (res.ok) { showAlert(alertEl, 'Appointment cancelled.', 'success'); loadAppointments(); }
+  else showAlert(alertEl, 'Failed to cancel', 'error');
+}
+
+loadAppointments();
 </script>
 </body>
 </html>
